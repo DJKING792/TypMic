@@ -44,13 +44,11 @@
 
 ## Use cases
 
-- 📝 **Long-form writing** (articles, essays, blogs) — speak instead of typing.
-- 💬 **Chat in WeChat / Slack / Discord** — text lands straight in the input box.
-- 💻 **Code comments & commit messages** — dictate into your editor's cursor.
-- 🎬 **Subtitles & meeting notes** — real-time speech-to-text.
-- 🗣️ **A keyboard-free voice input** anywhere there's a cursor.
-
-> Keywords: phone as microphone, wireless microphone, voice input, speech to text, LAN voice recognition, dictation, MiMo ASR, hands-free typing, PC voice input.
+- 📝 **Long-form writing** (articles, essays, blogs) — use your phone as a microphone and voice-input long texts by just speaking.
+- 💬 **Chat in WeChat / Slack / Discord** — a no-install voice input: put the cursor in the box and speak to send.
+- 💻 **Code comments & commit messages** — dictate and the transcript drops into your editor's cursor.
+- 🎬 **Subtitles & meeting notes** — LAN voice recognition turns speech to text in real time.
+- 🗣️ **A voice-input-method replacement** — no third-party IME; your phone becomes a wireless microphone for PC voice input anywhere there's a cursor.
 
 ## How it works
 
