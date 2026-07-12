@@ -125,4 +125,4 @@ MiMo-V2.5-ASR → the text is pasted into the PC's cursor via `Ctrl+V`.
   **full trust** at `Settings → General → About → Certificate Trust Settings`. Installing the
   profile alone is not enough — Safari will still refuse the connection until full trust is on.
   (The self-signed cert already includes the LAN IP in its SAN and is valid for ≤398 days, so it
-  complies with Apple's requirements.)
+  complies with Apple's requirements).
