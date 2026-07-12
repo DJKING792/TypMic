@@ -1,8 +1,19 @@
-# PhoneMic
+<p align="center">
+  <img src="assets/banner.png" alt="PhoneMic Banner" width="700">
+</p>
 
-手机当麦克风：说话即转文字，自动输入电脑光标。局域网内扫码即用，无需装 App、无需数据线。
+<h1 align="center">PhoneMic</h1>
 
-*Turn your phone into a wireless microphone for your PC.*
+<p align="center">手机当麦克风：说话即转文字，自动输入电脑光标。局域网内扫码即用，无需装 App、无需数据线。</p>
+
+<p align="center"><em>Turn your phone into a wireless microphone for your PC.</em></p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License"></a>
+  <img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python">
+  <img src="https://img.shields.io/badge/ASR-MiMo%20V2.5-orange.svg" alt="ASR Engine">
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg" alt="Platform">
+</p>
 
 ## 功能
 
@@ -125,4 +136,4 @@ MiMo-V2.5-ASR → the text is pasted into the PC's cursor via `Ctrl+V`.
   **full trust** at `Settings → General → About → Certificate Trust Settings`. Installing the
   profile alone is not enough — Safari will still refuse the connection until full trust is on.
   (The self-signed cert already includes the LAN IP in its SAN and is valid for ≤398 days, so it
-  complies with Apple's requirements).
+  complies with Apple's requirements.)
