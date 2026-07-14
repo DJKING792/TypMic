@@ -8,7 +8,9 @@ PhoneMic 服务端（云端 MiMo ASR API + aiohttp）
 - 首次运行自动生成自签根 CA + 服务端证书（SAN 含局域网 IP / localhost），
   以便手机用 HTTPS 访问（getUserMedia 需要安全上下文）。
 - 识别走云端 MiMo API（OpenAI 兼容），无需本地下载模型；
-  需在环境变量 MIMO_API_KEY 中配置小米 MiMo API key（https://mimo.mi.com）。
+  需在环境变量 MIMO_API_KEY 中配置小米 MiMo API key（https://platform.xiaomimimo.com）。
+- 可选【离线模式】：设置 PHONEMIC_ASR=local 后改用本地 faster-whisper 识别，
+  语音不出本机，无需任何 API key（需 pip install faster-whisper，首次会下载模型）。
 - 接口处理中，ffmpeg 转换放到线程，API 请求异步进行，避免卡住事件循环；
   粘贴动作放进 executor，并放慢剪贴板还原节奏，避免粘到旧内容。
 """
@@ -48,6 +50,9 @@ except ImportError as _e:
 
 pyautogui.FAILSAFE = False
 
+# 本地离线识别后端（faster-whisper），仅离线模式按需启用；核心依赖不受影响。
+from local_asr import LocalWhisperASR
+
 ROOT = Path(__file__).parent
 TEMP_DIR = ROOT / "audio_temp"
 TEMP_DIR.mkdir(exist_ok=True)
@@ -83,9 +88,13 @@ def load_dotenv(path=None):
 
 # 云端识别使用小米 MiMo ASR API，需在环境变量 MIMO_API_KEY 中配置 API key。
 # 优先取系统环境变量；若没有，则从同目录 .env 读取。
-# 前往 https://mimo.mi.com 申请。
+# 前往 https://platform.xiaomimimo.com 申请。
 load_dotenv()
 MIMO_API_KEY = os.environ.get("MIMO_API_KEY", "").strip()
+
+# 识别模式：cloud（默认，走小米 MiMo 云端）或 local（本地 faster-whisper 离线）
+ASR_MODE = os.environ.get("PHONEMIC_ASR", "cloud").strip().lower()
+WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small").strip() or "small"
 
 asr = None  # 懒加载，避免启动即占内存
 routes = web.RouteTableDef()
@@ -266,7 +275,7 @@ class MimoASR:
     """小米 MiMo-V2.5-ASR 云端语音识别（OpenAI 兼容接口）。
 
     需在环境变量 MIMO_API_KEY 中配置小米 MiMo API key
-    （前往 https://mimo.mi.com 申请）。
+    （前往 https://platform.xiaomimimo.com 申请）。
     """
 
     API_URL = "https://api.xiaomimimo.com/v1/chat/completions"
@@ -282,7 +291,7 @@ class MimoASR:
         if not self.api_key:
             raise RuntimeError(
                 "未配置 MIMO_API_KEY。请在环境变量中设置小米 MiMo API key"
-                "（前往 https://mimo.mi.com 申请），然后重启服务。"
+                "（前往 https://platform.xiaomimimo.com 申请），然后重启服务。"
             )
         # 读取音频并 base64（小米接口接收 data URI 形式的音频）
         with open(wav_path, "rb") as f:
@@ -428,7 +437,8 @@ async def api_status(request):
         "server_url": f"https://{get_wifi_ip()}:8443",
         "ffmpeg_ok": ffmpeg_available(),
         "cert_ok": CERT_FILE.exists() and KEY_FILE.exists() and CA_CERT_FILE.exists(),
-        "mode": "cloud-mimo",
+        "mode": "local-whisper" if ASR_MODE == "local" else "cloud-mimo",
+        "asr_mode": ASR_MODE,
         "mimo_api_key_set": bool(MIMO_API_KEY),
         "uptime_sec": int(time.time() - START_TIME),
         "connections": CONNECTION_LOG[-30:],
@@ -459,12 +469,13 @@ async def transcribe_api(request):
         return web.json_response({"ok": False, "error": f"音频转换失败: {e}"})
 
     if asr is None:
-        asr = MimoASR()
-    # 调用云端 MiMo API 识别（异步，不阻塞事件循环）
+        asr = LocalWhisperASR(WHISPER_MODEL) if ASR_MODE == "local" else MimoASR()
+    # 调用识别（云端 MiMo 或本地 faster-whisper；异步，不阻塞事件循环）
     try:
         text = await asr.transcribe(wav_path)
     except Exception as e:
-        print(f"[MiMo] {e}", flush=True)
+        tag = "Local" if ASR_MODE == "local" else "MiMo"
+        print(f"[{tag}] {e}", flush=True)
         return web.json_response({"ok": False, "error": f"识别失败: {e}"})
 
     if not text.strip():
@@ -504,21 +515,38 @@ def print_startup_diagnostics(ip):
     print(f"ffmpeg 可用   : {'是' if ffmpeg_ok else '否（音频转换会失败，请安装 ffmpeg 并加入 PATH）'}")
     print(f"证书状态      : {'已生成' if cert_ok else '将自动生成'}")
     print(f"端口 8443     : {'已被占用！' if port_used else '空闲，可正常监听'}")
-    print(f"识别模式      : 云端 MiMo-V2.5-ASR（小米 API，OpenAI 兼容）")
-    if MIMO_API_KEY:
-        print(f"MIMO_API_KEY  : 已配置 ✔")
+    if ASR_MODE == "local":
+        try:
+            import faster_whisper  # noqa: F401
+            fw_ok = True
+        except Exception:
+            fw_ok = False
+        print(f"识别模式      : 本地 faster-whisper 离线（模型={WHISPER_MODEL}，无需 API key）")
+        print(f"faster-whisper: {'已安装 ✔' if fw_ok else '未安装！离线模式需先 pip install faster-whisper'}")
+        if not fw_ok:
+            RED = "\033[91m"
+            RESET = "\033[0m"
+            bar = "!" * 62
+            print(RED + bar + RESET)
+            print(RED + "!!! 离线模式已开启，但缺少 faster-whisper !!!" + RESET)
+            print(RED + "!!! 请安装： pip install faster-whisper" + RESET)
+            print(RED + bar + RESET)
     else:
-        RED = "\033[91m"
-        RESET = "\033[0m"
-        bar = "!" * 62
-        print(RED + bar + RESET)
-        print(RED + "!!! MIMO_API_KEY 未配置，语音识别将无法工作 !!!" + RESET)
-        print(RED + "!!! 请设置后重启服务：" + RESET)
-        print(RED + "        set MIMO_API_KEY=你的key" + RESET)
-        print(RED + "    或把 key 写入项目根目录 .env 文件（一行即可）：" + RESET)
-        print(RED + "        MIMO_API_KEY=你的key" + RESET)
-        print(RED + "    申请地址：https://mimo.mi.com" + RESET)
-        print(RED + bar + RESET)
+        print(f"识别模式      : 云端 MiMo-V2.5-ASR（小米 API，OpenAI 兼容）")
+        if MIMO_API_KEY:
+            print(f"MIMO_API_KEY  : 已配置 ✔")
+        else:
+            RED = "\033[91m"
+            RESET = "\033[0m"
+            bar = "!" * 62
+            print(RED + bar + RESET)
+            print(RED + "!!! MIMO_API_KEY 未配置，语音识别将无法工作 !!!" + RESET)
+            print(RED + "!!! 请设置后重启服务：" + RESET)
+            print(RED + "        set MIMO_API_KEY=你的key" + RESET)
+            print(RED + "    或把 key 写入项目根目录 .env 文件（一行即可）：" + RESET)
+            print(RED + "        MIMO_API_KEY=你的key" + RESET)
+            print(RED + "    申请地址：https://platform.xiaomimimo.com" + RESET)
+            print(RED + bar + RESET)
     if local_ips:
         print("本机所有 IPv4 : " + ", ".join(local_ips))
     print("-" * 60)
