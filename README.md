@@ -86,19 +86,23 @@ By default PhoneMic uses Xiaomi's MiMo cloud ASR. If you want everything to stay
 
 ## Quick Start
 
+**Download the project** (either way):
+
+- **Option A — recommended, no Git**: Open <https://github.com/DJKING792/PhoneMic>, click the green **Code** button → **Download ZIP**, unzip to any folder, then open the unzipped `PhoneMic` folder.
+- **Option B — developers**: Open a terminal, run the command below, then enter the downloaded `PhoneMic` folder.
+
+  ```
+  git clone https://github.com/DJKING792/PhoneMic.git
+  ```
+
+> Requires **Python 3.10+** installed on the PC (if you don't have it, get it from <https://www.python.org>, and be sure to tick "Add python.exe to PATH" during setup). The remaining dependencies are installed automatically on first run.
+
 ### Windows
 
-1. **Download the project**: Create a folder anywhere and open it. Click the File Explorer address bar, type `cmd`, and press Enter to open a command prompt in that folder. Run:
-
-   ```
-   git clone https://github.com/DJKING792/PhoneMic.git
-   ```
-
-   Then enter the created `PhoneMic` subfolder.
-2. **Allow the firewall first**: right-click `allow_firewall.bat` → "Run as administrator" (opens port 8443; one time only). If the phone later shows "connection refused / ERR_CONNECTION_REFUSED", this step was likely skipped.
-3. **Double-click `start.bat` to launch**: On first run it creates a virtualenv and installs dependencies automatically, then asks you to choose the mode — `1` Cloud (MiMo, prompts for a free API key; get one at <https://platform.xiaomimimo.com>) or `2` Offline (local faster-whisper, no key needed). Your choice is saved to `.env` and reused next time.
-4. The screen shows the "phone URL" (e.g. `https://192.168.x.x:8443`) and a QR code.
-5. Connect your phone (see [Connect your phone](#connect-your-phone) below), put the PC cursor wherever you want text (Notepad / WeChat / browser…), and just speak into the phone.
+1. **Allow the firewall first**: right-click `allow_firewall.bat` → "Run as administrator" (opens port 8443; one time only). If the phone later shows "connection refused / ERR_CONNECTION_REFUSED", this step was likely skipped.
+2. **Double-click `start.bat` to launch**: On first run it creates a virtualenv and installs dependencies automatically, then asks you to choose the mode — `1` Cloud (MiMo, prompts for a free API key; get one at <https://platform.xiaomimimo.com>) or `2` Offline (local faster-whisper, no key needed). Your choice is saved to `.env` and reused next time.
+3. The screen shows the "phone URL" (e.g. `https://192.168.x.x:8443`) and a QR code.
+4. Connect your phone (see [Connect your phone](#connect-your-phone) below), put the PC cursor wherever you want text (Notepad / WeChat / browser…), and just speak into the phone.
 
 ### macOS / Linux
 
