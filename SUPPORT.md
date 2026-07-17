@@ -1,6 +1,6 @@
 # Getting Support
 
-Need a hand getting PhoneMic running? Here's where to look.
+Need a hand getting TypMic running? Here's where to look.
 
 ## 1. Check the diagnostics first
 
@@ -15,7 +15,7 @@ On startup the server prints a detailed diagnostic block (IP / ffmpeg / certific
 
 ## 3. Still stuck?
 
-- Open a [GitHub Issue](https://github.com/DJKING792/PhoneMic/issues) with your OS, Python version, and the diagnostic output.
+- Open a [GitHub Issue](https://github.com/DJKING792/TypMic/issues) with your OS, Python version, and the diagnostic output.
 - For security-sensitive problems, follow [SECURITY.md](SECURITY.md) instead of a public issue.
 
-PhoneMic is maintained in spare time, so responses may take a few days — thank you for your patience.
+TypMic is maintained in spare time, so responses may take a few days — thank you for your patience.
