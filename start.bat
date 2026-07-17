@@ -1,10 +1,10 @@
 @echo off
+chcp 65001 >nul
 setlocal enabledelayedexpansion
 set "BASE=%~dp0"
 set "VENV=%BASE%.venv"
 set "KEYFILE=%BASE%.env"
 set "PYTHON="
-
 REM 查找可用的 Python（仅用绝对路径，不依赖 PATH 环境变量）
 set "CAND=C:\Python314\python.exe C:\Python313\python.exe C:\Python312\python.exe C:\Users\Ax\.workbuddy\binaries\python\versions\3.13.12\python.exe"
 for %%i in (%CAND%) do (
@@ -23,25 +23,21 @@ if not defined PYTHON (
     pause
     exit /b 1
 )
-
 echo 正在使用 Python：%PYTHON%
-
 REM 若虚拟环境不存在则创建
 if not exist "%VENV%\Scripts\python.exe" (
     echo [1/3] 正在创建虚拟环境...
     "%PYTHON%" -m venv "%VENV%"
 )
-
 REM --- 识别模式选择（云端 / 离线）---
 set "ASRMODE=cloud"
-if defined PHONEMIC_ASR (
-    if /i "%PHONEMIC_ASR%"=="local" set "ASRMODE=local"
+if defined TYPOMIC_ASR (
+    if /i "%TYPOMIC_ASR%"=="local" set "ASRMODE=local"
 ) else if exist "%KEYFILE%" (
-    for /f "usebackq tokens=1,* delims==" %%A in (`findstr /b /i "PHONEMIC_ASR" "%KEYFILE%"`) do (
+    for /f "usebackq tokens=1,* delims==" %%A in (`findstr /b /i "TYPOMIC_ASR" "%KEYFILE%"`) do (
         if /i "%%B"=="local" set "ASRMODE=local"
     )
 )
-
 echo.
 echo ============================================================
 echo  请选择语音识别模式：
@@ -52,22 +48,21 @@ echo ============================================================
 set /p "CHOICE=输入 1 或 2（直接回车沿用当前默认）："
 if "!CHOICE!"=="2" (
     set "ASRMODE=local"
-    set "PHONEMIC_ASR=local"
+    set "TYPOMIC_ASR=local"
     REM 写入 .env 以便下次自动沿用（已存在则不再重复写入）
-    findstr /b /i "PHONEMIC_ASR" "%KEYFILE%" >nul 2>&1
+    findstr /b /i "TYPOMIC_ASR" "%KEYFILE%" >nul 2>&1
     if errorlevel 1 (
-        >> "%KEYFILE%" echo PHONEMIC_ASR=local
+        >> "%KEYFILE%" echo TYPOMIC_ASR=local
     )
     echo 已选择离线模式（已写入 .env，下次自动沿用）。
 ) else (
     if "!ASRMODE!"=="local" (
-        set "PHONEMIC_ASR=local"
+        set "TYPOMIC_ASR=local"
         echo 沿用 .env 中的离线模式。
     ) else (
         echo 使用云端模式。
     )
 )
-
 REM 安装依赖（轻量，已安装的会跳过）
 echo [2/3] 正在安装依赖（无需下载模型，很快）...
 "%VENV%\Scripts\python.exe" -m pip install --upgrade pip
@@ -86,13 +81,11 @@ if "!ASRMODE!"=="local" (
         exit /b 1
     )
 )
-
 REM --- MiMo API key（离线模式无需）---
 if "!ASRMODE!"=="local" (
     echo 离线模式：无需 MiMo API key。
     goto :afterkey
 )
-
 set "HAVE_KEY="
 if defined MIMO_API_KEY (
     if not "%MIMO_API_KEY%"=="" set "HAVE_KEY=1"
@@ -101,7 +94,6 @@ if defined MIMO_API_KEY (
         if not "%%B"=="" set "HAVE_KEY=1"
     )
 )
-
 if not defined HAVE_KEY (
     echo.
     echo ============================================================
@@ -123,7 +115,6 @@ if not defined HAVE_KEY (
     echo MiMo API key：已配置
 )
 :afterkey
-
 REM Start server
 echo [3/3] 正在启动服务...
 echo 下方出现横幅即表示服务已启动，请保持此窗口打开。
