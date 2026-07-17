@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>PhoneMic</title>
+<title>TypMic</title>
 <style>
   :root {
     --bg: #030712;
@@ -131,6 +131,23 @@
   }
   .retry.show { display: block; animation: textAppear 0.3s ease; }
 
+  /* 四键控制条：回车 / 换行 / 删除 / 清空（与录音解耦，对任意输入生效） */
+  .keyrow {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    width: 100%; max-width: 360px; margin-top: 6px;
+  }
+  .key-btn {
+    appearance: none; -webkit-appearance: none;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(148, 163, 184, 0.08); color: var(--txt-main);
+    border-radius: 14px; padding: 13px 0;
+    font-size: 14px; font-weight: 600; letter-spacing: 0.5px;
+    cursor: pointer; user-select: none; touch-action: manipulation;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  }
+  .key-btn:active { background: rgba(59, 130, 246, 0.25); border-color: var(--acc); transform: scale(0.95); }
+  .key-btn.busy { opacity: 0.5; pointer-events: none; }
+
   /* 精巧的现代动画 */
   @keyframes micPulse {
     0% { box-shadow: 0 0 0 0 rgba(239,68,68, 0.4), 0 0 40px var(--rec-glow); }
@@ -174,6 +191,12 @@
     <div class="mic-wrapper">
       <button class="retry" id="retry">RESET MIC</button>
       <button class="mic-btn" id="btn">TALK</button>
+    </div>
+    <div class="keyrow" id="keyrow">
+      <button class="key-btn" data-action="enter">回车</button>
+      <button class="key-btn" data-action="newline">换行</button>
+      <button class="key-btn" data-action="backspace">删除</button>
+      <button class="key-btn" data-action="clear">清空</button>
     </div>
     <span class="hint">安卓用户点「高级 → 继续访问」即可使用；iPhone 因 iOS 无「继续访问」，须先把电脑项目根目录下的 <code>rootCA.pem</code> 用 AirDrop / 邮件 / 微信文件传到手机，安装描述文件并在「设置 › 通用 › 关于本机 › 证书信任设置」开启完全信任后，再打开本页。</span>
   </div>
@@ -337,6 +360,24 @@
   });
 
   retryBtn.addEventListener("click", function () { stopStream(); startRecording(); });
+
+  // ---- 四键控制：回车 / 换行 / 删除 / 清空（发标准按键事件，跨平台） ----
+  var keyrow = document.getElementById("keyrow");
+  keyrow.addEventListener("click", function (e) {
+    var b = e.target.closest(".key-btn");
+    if (!b || b.classList.contains("busy")) return;
+    var action = b.getAttribute("data-action");
+    b.classList.add("busy");
+    fetch("/api/control", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: action })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (!d.ok) setStatus("控制失败: " + (d.error || ""), "err"); })
+      .catch(function () { setStatus("网络断开", "err"); })
+      .finally(function () { setTimeout(function () { b.classList.remove("busy"); }, 150); });
+  });
 
   window.addEventListener("pagehide", stopStream);
   window.addEventListener("beforeunload", stopStream);
