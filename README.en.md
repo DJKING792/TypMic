@@ -8,7 +8,7 @@
 
 <h1 align="center">TypMic</h1>
 
-<p align="center">TypMic turns your phone into a wireless microphone for your PC: scan a QR code in your phone's browser and start speaking — the recognized text lands at your PC's cursor, as if you were typing with your voice. No app install, no cable. Audio is sent only across your own LAN (never leaves your network). It's more than transcription: a complete dictation workflow with dual ASR engines (Xiaomi MiMo cloud + local Whisper), a glossary that fixes mis-heard terms, optional AI polish (auto-punctuation / command words / de-filler), and a live pipeline + daily-usage stats on the PC page — so dictation turns straight into usable text. Built-in Enter / New-line / Backspace / Clear keys; Windows / macOS / Linux.</p>
+<p align="center">Scan a QR code in your phone's browser to connect instantly — audio stays on your own LAN and never leaves your network. Dual ASR engines (Xiaomi MiMo cloud + local Whisper), a glossary that fixes mis-heard terms, and optional AI polish turn your dictation straight into usable text. Windows / macOS / Linux.</p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License"></a>
