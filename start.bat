@@ -6,8 +6,7 @@ set "VENV=%BASE%.venv"
 set "KEYFILE=%BASE%.env"
 set "PYTHON="
 REM 查找可用的 Python（仅用绝对路径，不依赖 PATH 环境变量）
-set "CAND=C:\Python314\python.exe C:\Python313\python.exe C:\Python312\python.exe"
-set "CAND=%CAND% C:\Users\Ax\.workbuddy\binaries\python\versions\3.13.12\python.exe"
+set "CAND=C:\Python314\python.exe C:\Python313\python.exe C:\Python312\python.exe C:\Users\Ax\.workbuddy\binaries\python\versions\3.13.12\python.exe"
 for %%i in (%CAND%) do (
     if not defined PYTHON (
         if exist "%%i" set "PYTHON=%%i"
@@ -88,6 +87,7 @@ REM --- MiMo API key（离线模式无需）---
 if "!ASRMODE!"=="local" (
     echo 离线模式：无需 MiMo API key。
     goto :afterkey
+
 )
 set "HAVE_KEY="
 if defined MIMO_API_KEY (
@@ -118,6 +118,76 @@ if not defined HAVE_KEY (
     echo MiMo API key：已配置
 )
 :afterkey
+
+REM ============================================================
+REM --- AI 润色（仅云端模式可用，自动复用 MiMo key）---
+REM ============================================================
+if "!ASRMODE!"=="local" (
+    echo.
+    echo 离线模式无需 key，AI 润色不可用，已保持关闭。
+    call :setenv TYPOMIC_POLISH off
+) else (
+    set "CURPOLISH=off"
+    set "CURMODE="
+    if exist "%KEYFILE%" (
+        for /f "usebackq tokens=1,* delims==" %%A in (`findstr /b /i "TYPOMIC_POLISH=" "%KEYFILE%"`) do set "CURPOLISH=%%B"
+        for /f "usebackq tokens=1,* delims==" %%A in (`findstr /b /i "TYPOMIC_POLISH_MODE=" "%KEYFILE%"`) do set "CURMODE=%%B"
+    )
+    if "!CURPOLISH!"=="off" if not defined CURMODE set "CURMODE=punctuate"
+    if "!CURPOLISH!"=="on" if not defined CURMODE set "CURMODE=full"
+    echo.
+    echo ============================================================
+    echo  AI 润色（自动标点 / 命令词，复用你的 MiMo key）
+    echo    1. 关闭（纯识别，最快）
+    echo    2. 只加标点（推荐：补标点+命令词，保留原话）
+    echo    3. 全量润色（去口语+顺句+分段+标点）
+    echo  当前：!CURPOLISH!  !CURMODE!
+    echo  默认推荐：2（只加标点）。回车即采用默认。
+    echo ============================================================
+    set /p "PCHOICE=输入 1/2/3（回车=默认推荐）："
+    if "!PCHOICE!"=="1" (
+        call :setenv TYPOMIC_POLISH off
+        echo 已选择：关闭 AI 润色。
+    ) else if "!PCHOICE!"=="3" (
+        call :setenv TYPOMIC_POLISH on
+        call :setenv TYPOMIC_POLISH_MODE full
+        echo 已选择：全量润色。
+    ) else (
+        call :setenv TYPOMIC_POLISH on
+        call :setenv TYPOMIC_POLISH_MODE punctuate
+        echo 已选择：只加标点（默认推荐）。
+    )
+)
+
+REM --- 术语表（纯本地，无需 key）---
+set "GLOSSARY_STATE=无"
+if exist "%BASE%glossary.txt" set "GLOSSARY_STATE=已开启"
+echo.
+echo ============================================================
+echo  术语表（错词纠正，纯本地无需 key）
+echo    1. 关闭
+echo    2. 开启（推荐：自动创建 glossary.txt，纠正常见谐音错词）
+echo  当前：!GLOSSARY_STATE!
+echo  默认推荐：2（开启）。回车即采用默认。
+echo ============================================================
+set /p "GCHOICE=输入 1/2（回车=默认推荐）："
+if "!GCHOICE!"=="1" (
+    call :setenv TYPOMIC_GLOSSARY off
+    echo 已选择：关闭术语表。
+) else (
+    call :setenv TYPOMIC_GLOSSARY on
+    if not exist "%BASE%glossary.txt" (
+        if exist "%BASE%glossary.txt.example" (
+            copy /y "%BASE%glossary.txt.example" "%BASE%glossary.txt" >nul
+            echo 已从示例创建 glossary.txt（可随时编辑）。
+        ) else (
+            echo 未找到 glossary.txt.example，跳过。
+        )
+    ) else (
+        echo glossary.txt 已存在，保持不变。
+    )
+)
+
 REM Start server
 echo [3/3] 正在启动服务...
 echo 下方出现横幅即表示服务已启动，请保持此窗口打开。
@@ -126,3 +196,16 @@ echo.
 echo.
 echo 服务已停止。按任意键关闭。
 pause
+
+goto :eof
+
+:setenv
+set "K=%~1"
+set "V=%~2"
+if not exist "%KEYFILE%" ( type nul > "%KEYFILE%" )
+findstr /v /b /i "%K%=" "%KEYFILE%" > "%KEYFILE%.tmp"
+if exist "%KEYFILE%.tmp" ( move /y "%KEYFILE%.tmp" "%KEYFILE%" >nul )
+>> "%KEYFILE%" echo %K%=%V%
+goto :eof
+
+
