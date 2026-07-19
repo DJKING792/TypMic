@@ -52,10 +52,13 @@ pyautogui.FAILSAFE = False
 
 # 本地离线识别后端（faster-whisper），仅离线模式按需启用；核心依赖不受影响。
 from local_asr import LocalWhisperASR
+# 文本后处理：术语表修正 + 可选 AI 润色（失败一律降级为原文，不阻断粘贴）。
+from text_polish import Polisher, load_glossary, apply_glossary
 
 ROOT = Path(__file__).parent
 TEMP_DIR = ROOT / "audio_temp"
 TEMP_DIR.mkdir(exist_ok=True)
+GLOSSARY_FILE = ROOT / "glossary.txt"
 
 CERT_FILE = ROOT / "cert.pem"
 KEY_FILE = ROOT / "key.pem"
@@ -95,6 +98,24 @@ MIMO_API_KEY = os.environ.get("MIMO_API_KEY", "").strip()
 # 识别模式：cloud（默认，走小米 MiMo 云端）或 local（本地 faster-whisper 离线）
 ASR_MODE = os.environ.get("TYPOMIC_ASR", "cloud").strip().lower()
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small").strip() or "small"
+
+# --------------------------------------------------------------------------- #
+# AI 润色 / 术语表（文本后处理，可选增益，默认关闭）
+# --------------------------------------------------------------------------- #
+# 润色开关：on 才启用；其余均自带合理默认，关掉即退回纯识别。
+POLISH_ON = os.environ.get("TYPOMIC_POLISH", "off").strip().lower() == "on"
+# 润色接口（OpenAI 兼容 chat/completions），默认复用小米 MiMo 的对话端点。
+POLISH_URL = os.environ.get(
+    "TYPOMIC_POLISH_URL", "https://api.xiaomimimo.com/v1/chat/completions"
+).strip()
+# 润色模型名（需为支持 chat 的模型）；默认 mimo-v2.5-flash，按你的账号可改。
+POLISH_MODEL = os.environ.get("TYPOMIC_POLISH_MODEL", "mimo-v2.5-flash").strip()
+# 润色 API key：默认复用 MIMO_API_KEY，也可单独配置。
+POLISH_API_KEY = os.environ.get("TYPOMIC_POLISH_API_KEY", MIMO_API_KEY).strip()
+
+polisher = Polisher(POLISH_URL, POLISH_API_KEY, POLISH_MODEL, timeout=30)
+# 术语表：gloom dict 形式；文件不存在则为空（不生效）。
+GLOSSARY_REPLACEMENTS, GLOSSARY_TERMS = load_glossary(GLOSSARY_FILE)
 
 asr = None  # 懒加载，避免启动即占内存
 routes = web.RouteTableDef()
@@ -469,6 +490,9 @@ async def api_status(request):
         "mode": "local-whisper" if ASR_MODE == "local" else "cloud-mimo",
         "asr_mode": ASR_MODE,
         "mimo_api_key_set": bool(MIMO_API_KEY),
+        "polish_enabled": POLISH_ON,
+        "polish_ready": polisher.ready(),
+        "glossary_count": len(GLOSSARY_REPLACEMENTS),
         "uptime_sec": int(time.time() - START_TIME),
         "connections": CONNECTION_LOG[-30:],
     })
@@ -509,6 +533,12 @@ async def transcribe_api(request):
 
     if not text.strip():
         return web.json_response({"ok": True, "text": "(未识别到语音)"})
+
+    # —— 文本后处理：术语表修正 + 可选 AI 润色（任一环节失败都降级为原文）——
+    text = apply_glossary(text, GLOSSARY_REPLACEMENTS)
+    if POLISH_ON:
+        text = await polisher.polish(text, GLOSSARY_TERMS)
+        text = apply_glossary(text, GLOSSARY_REPLACEMENTS)  # 润色后再保一道术语
 
     # 粘贴放在 executor，并等它完成再返回，保证时序
     loop = asyncio.get_running_loop()
@@ -594,6 +624,19 @@ def print_startup_diagnostics(ip):
             print(RED + bar + RESET)
     if local_ips:
         print("本机所有 IPv4 : " + ", ".join(local_ips))
+    # 文本后处理状态
+    if POLISH_ON:
+        if polisher.ready():
+            print(f"AI 润色        : 已开启 ✔（模型={POLISH_MODEL}）")
+        else:
+            YEL = "\033[93m"
+            RESET = "\033[0m"
+            print(YEL + "!!! AI 润色已开启，但接口/key/模型未就绪，将自动降级为不润色 !!!" + RESET)
+            print(YEL + "    请检查 TYPOMIC_POLISH_URL / TYPOMIC_POLISH_API_KEY / TYPOMIC_POLISH_MODEL" + RESET)
+    else:
+        print(f"AI 润色        : 关闭（设 TYPOMIC_POLISH=on 可开启；默认纯识别）")
+    print(f"术语表        : 已加载 {len(GLOSSARY_REPLACEMENTS)} 条规则"
+          + ("" if GLOSSARY_REPLACEMENTS else "（无 glossary.txt，可建一个做错词纠正）"))
     print("-" * 60)
     if not ffmpeg_ok:
         print("⚠ 警告：未检测到 ffmpeg，手机录音将无法转为文字。")
