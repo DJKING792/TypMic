@@ -104,6 +104,28 @@ python voice_input_server.py
 
 启动后屏幕显示「手机访问地址」和二维码，按 [手机连接详解](CONNECT_PHONE.md) 操作。
 
+## 获取免费的小米 MiMo API Key
+
+云端模式需要一个免费的小米 MiMo API Key，3 步即可拿到：
+
+<details>
+
+<summary>📌 点击展开：3 步图文获取免费 MiMo API Key</summary>
+
+**1. 注册 / 登录** <https://platform.xiaomimimo.com>（小米账号）
+
+![第 1 步 —— 注册 / 登录](assets/mimo-key/mimo-step1-register.png)
+
+**2. 进控制台 → 左侧「API 密钥」**
+
+![第 2 步 —— 密钥管理页](assets/mimo-key/mimo-step2-keys.png)
+
+**3. 创建密钥 → 立刻复制**（只显示一次），填进 `.env`：`MIMO_API_KEY=你的key`
+
+![第 3 步 —— 创建并复制 Key](assets/mimo-key/mimo-step3-create.png)
+
+</details>
+
 ## AI 润色与术语表（可选，强烈推荐）
 
 TypMic 默认只做「识别 → 粘贴」。**开启后处理**，能把口语化的识别原文整理成能直接用的文本，并纠正常被听错的产品名 / 人名。两块能力都能独立开关，**任一环节异常都会自动降级为不处理**，绝不影响正常输入。
@@ -158,28 +180,6 @@ TYPOMIC_POLISH=on
 > 隐私提示：开启润色后，识别文本会发往你配置的对话接口（默认小米）做整理；音频本身仍只经局域网到本机。如要求完全不出网，请保持 `TYPOMIC_POLISH=off`（或离线模式）。
 
 > 电脑端扫码页（`/desktop`）会实时显示识别流水线（识别中 → 润色中 → 已粘贴）与今日字数 / 次数 / 平均识别·润色耗时，方便判断网络与 key 是否正常工作。
-
-## 获取免费的小米 MiMo API Key
-
-云端模式需要一个免费的小米 MiMo API Key，3 步即可拿到：
-
-<details>
-
-<summary>📌 点击展开：3 步图文获取免费 MiMo API Key</summary>
-
-**1. 注册 / 登录** <https://platform.xiaomimimo.com>（小米账号）
-
-![第 1 步 —— 注册 / 登录](assets/mimo-key/mimo-step1-register.png)
-
-**2. 进控制台 → 左侧「API 密钥」**
-
-![第 2 步 —— 密钥管理页](assets/mimo-key/mimo-step2-keys.png)
-
-**3. 创建密钥 → 立刻复制**（只显示一次），填进 `.env`：`MIMO_API_KEY=你的key`
-
-![第 3 步 —— 创建并复制 Key](assets/mimo-key/mimo-step3-create.png)
-
-</details>
 
 ## 常见问题
 
