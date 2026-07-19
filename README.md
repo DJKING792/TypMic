@@ -8,7 +8,9 @@
 
 <h1 align="center">TypMic</h1>
 
-<p align="center">免 App，免接线，直接在手机浏览器里说话，识别出的文字实时输入到电脑光标处；支持中文 / 方言 / 中英混说与本地 faster-whisper 离线双模式，全程纯局域网、数据不出内网，并内置回车 / 换行 / 删除 / 清空 四键控制。</p>
+<p align="center"><b>把手机变成电脑的无线麦克风——开口说话，文字就落在光标处，像用嘴在电脑上打字。</b></p>
+
+<p align="center">免装 App、免数据线：手机浏览器扫码即连。语音经纯局域网在手机与电脑间传输，<b>音频不出内网</b>。它不止是转写，而是一套完整的口述工作流：<b>云端 MiMo + 本地 Whisper 双引擎</b>识别、<b>术语表</b>纠正听错的专业词、<b>AI 润色</b>（自动标点 / 命令词分段 / 去口语，可选两种强度）、以及<b>实时流水线状态与今日用量统计</b>——让口述直接变成能用的文本。内置回车 / 换行 / 删除 / 清空 四键，Windows / macOS / Linux 通用。</p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License"></a>
@@ -106,9 +108,11 @@ python voice_input_server.py
 
 TypMic 默认只做「识别 → 粘贴」。**开启后处理**，能把口语化的识别原文整理成能直接用的文本，并纠正常被听错的产品名 / 人名。两块能力都能独立开关，**任一环节异常都会自动降级为不处理**，绝不影响正常输入。
 
+> **最简用法**：双击 `start.bat` 启动时会弹出两段菜单——AI 润色（默认「只加标点」）与术语表（默认「开启」），按回车即采用推荐默认值，无需手动改任何配置文件。想关闭或换模式，重跑 `start.bat` 重新选择即可。
+
 ### 1. 术语表（零配置、无需 key、最稳）
 
-把项目里的 `glossary.txt.example` 复制为 **`glossary.txt`**，按需要修改后重启服务即可：
+启动菜单选「开启」会自动从 `glossary.txt.example` 复制出 **`glossary.txt`**；也可手动把项目里的 `glossary.txt.example` 复制为 `glossary.txt`，按需要修改后重启服务即可：
 
 ```text
 klawd => Claude        # 错词 => 正词，大小写不敏感，识别后立刻纠正
