@@ -10,7 +10,7 @@
 
 <p align="center"><b>把手机变成电脑的无线麦克风——开口说话，文字就落在光标处，像用嘴在电脑上打字。</b></p>
 
-<p align="center">免装 App、免数据线：手机浏览器扫码即连。语音经纯局域网在手机与电脑间传输，<b>音频不出内网</b>。它不止是转写，而是一套完整的口述工作流：<b>云端 MiMo + 本地 Whisper 双引擎</b>识别、<b>术语表</b>纠正听错的专业词、<b>AI 润色</b>（自动标点 / 命令词分段 / 去口语，可选两种强度）、以及<b>实时流水线状态与今日用量统计</b>——让口述直接变成能用的文本。内置回车 / 换行 / 删除 / 清空 四键，Windows / macOS / Linux 通用。</p>
+<p align="center">手机浏览器扫码即连，语音走纯局域网、<b>音频不出内网</b>。云端 MiMo + 本地 Whisper <b>双引擎识别</b>，配合术语表纠错与可选 AI 润色，让口述直接变成能用的文本。Windows / macOS / Linux 通用。</p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License"></a>
