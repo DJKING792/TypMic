@@ -9,8 +9,19 @@
   * { box-sizing:border-box; }
   body { margin:0; min-height:100vh; background:var(--bg); color:var(--txt);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
-    display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:20px; gap:16px; }
-  .card { background:var(--card); border-radius:16px; padding:24px; max-width:520px; width:100%; }
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:24px; gap:16px; }
+  .card { background:var(--card); border-radius:16px; padding:24px; width:100%; }
+  .card-qr { max-width:460px; }
+  .cards-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; width:100%; max-width:1080px; }
+  /* 顶部：扫码卡片 + 两张控制卡（AI 润色 / 自动丢弃）并排 */
+  .qr-row { display:flex; gap:16px; width:100%; max-width:1080px; align-items:flex-start; }
+  .qr-row .card-qr { flex:0 0 460px; max-width:460px; }
+  .qr-row .side-cards { flex:1; min-width:0; margin:0; }
+  @media (max-width:860px) {
+    .qr-row { flex-direction:column; max-width:520px; }
+    .qr-row .card-qr { flex:none; max-width:none; width:100%; }
+    .qr-row .side-cards { width:100%; }
+  }
   .center { text-align:center; }
   h1 { font-size:19px; margin:0 0 6px; }
   .sub { color:var(--sub); font-size:13px; margin-bottom:18px; }
@@ -49,21 +60,153 @@
   .banner a { color:var(--err); }
   button.copy { margin-top:10px; padding:7px 14px; border-radius:9px; border:1px solid var(--acc);
     background:transparent; color:var(--acc); font-size:13px; cursor:pointer; }
+
+  /* —— 自动丢弃文本 —— */
+  .drop-add { display:flex; gap:10px; }
+  .drop-add input { flex:1; padding:9px 12px; border-radius:9px; border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.04); color:var(--txt); font-size:13px; }
+  .drop-add input:focus { outline:none; border-color:var(--acc); }
+  .drop-add button { padding:9px 18px; border-radius:9px; border:none; background:var(--acc); color:#fff;
+    font-size:13px; cursor:pointer; white-space:nowrap; }
+  .drop-add button:hover { filter:brightness(1.1); }
+  .drop-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .chip { display:inline-flex; align-items:center; gap:8px; background:rgba(255,107,107,.14);
+    border:1px solid rgba(255,107,107,.35); color:var(--txt); padding:5px 6px 5px 12px; border-radius:20px; font-size:12.5px; }
+  .chip .x { cursor:pointer; color:var(--err); font-weight:700; width:18px; height:18px; line-height:16px;
+    text-align:center; border-radius:50%; }
+  .chip .x:hover { background:rgba(255,107,107,.25); }
+  .drop-empty { color:var(--sub); font-size:13px; padding:6px 0; }
+
+  /* —— AI 润色模式 —— */
+  .pmodes { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+  .pmode { padding:8px 14px; border-radius:10px; border:1px solid rgba(255,255,255,.14);
+    background:rgba(255,255,255,.04); color:var(--txt); font-size:13px; cursor:pointer; transition:.15s; }
+  .pmode:hover { border-color:var(--acc); }
+  .pmode.active { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600; }
+  .pmode.active:hover { filter:brightness(1.08); }
+  .pmode .sub2 { font-size:11px; opacity:.8; margin-left:4px; }
+  .pm-current { font-size:12px; color:var(--sub); margin-bottom:10px; }
+
+  /* —— 重启服务器 —— */
+  .btn-restart { margin-top:16px; width:100%; padding:10px 14px; border-radius:10px;
+    border:1px solid var(--warn); background:rgba(255,184,77,.12); color:var(--warn);
+    font-size:13px; font-weight:600; cursor:pointer; transition:.15s; }
+  .btn-restart:hover { filter:brightness(1.15); }
+  .btn-restart:disabled { opacity:.6; cursor:default; }
+  .restart-note { font-size:12px; color:var(--sub); margin-top:8px; line-height:1.7; }
+
+  /* —— 实时识别流水线 —— */
+  .pipe { display:flex; align-items:center; gap:6px; margin-top:6px; }
+  .pipe .node { flex:1; text-align:center; font-size:12.5px; padding:9px 4px; border-radius:10px;
+    background:rgba(255,255,255,.05); color:var(--sub); border:1px solid transparent; transition:.18s; }
+  .pipe .node.active { background:rgba(79,140,255,.18); color:var(--acc); border-color:var(--acc);
+    box-shadow:0 0 0 3px rgba(79,140,255,.12); }
+  .pipe .node.done { background:rgba(55,211,155,.16); color:var(--ok); border-color:rgba(55,211,155,.4); }
+  .pipe .node.err { background:rgba(255,107,107,.16); color:var(--err); border-color:rgba(255,107,107,.4); }
+  .pipe .arrow { color:var(--sub); font-size:14px; }
+  .pipe-sub { font-size:12px; color:var(--sub); margin-top:10px; min-height:18px; }
+  .pipe-sub b { color:var(--txt); }
+  .preview { margin-top:8px; font-size:12.5px; color:var(--sub); background:rgba(255,255,255,.04);
+    border-radius:10px; padding:9px 12px; max-height:72px; overflow:auto; white-space:pre-wrap; word-break:break-all; }
+  .stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+  .stat { background:rgba(255,255,255,.04); border-radius:10px; padding:10px 6px; text-align:center; }
+  .stat .n { font-size:18px; font-weight:700; color:var(--txt); }
+  .stat .l { font-size:11px; color:var(--sub); margin-top:2px; }
+  @media (max-width:860px) { .cards-row { grid-template-columns:1fr; max-width:520px; } }
+
+  /* —— 手机连不上？帮助（右侧栏内横跨两列底部，默认收起） —— */
+  details.help { background:var(--card); border-radius:16px; padding:14px 20px;
+    grid-column: 1 / -1; }
+  details.help > summary { cursor:pointer; font-size:14px; font-weight:600; list-style:none; user-select:none;
+    display:flex; align-items:center; }
+  details.help > summary::-webkit-details-marker { display:none; }
+  details.help > summary::before { content:"▸"; color:var(--acc); margin-right:8px; font-size:13px; }
+  details.help[open] > summary::before { content:"▾"; }
+  details.help ul { margin:4px 0 0; padding-left:4px; list-style:none; }
+  details.help li { font-size:13px; color:var(--sub); line-height:2; }
+  details.help li b { color:var(--txt); }
+  details.help code { background:rgba(255,255,255,.08); padding:1px 6px; border-radius:5px; color:var(--txt);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
 </style>
 </head>
 <body>
-<div class="card center">
-  <h1>🎤 TypMic · 扫码打开</h1>
+<div class="qr-row">
+<div class="card card-qr center">
+  <h1>TypMic · 扫码打开</h1>
   <div class="sub">用手机相机/微信扫下面的二维码，直接打开录音页</div>
   <div class="qr"><img src="/desktop/qr.png" alt="QR"></div>
   <div class="url" id="url">https://…</div>
   <button class="copy" id="copy">复制手机访问地址</button>
 
   <div class="steps">
-    <b>使用步骤：</b><br>
-    1. 安卓：扫码后在浏览器打开页面，提示「证书风险」时点「高级 → 继续访问」。<br>
-    2. <b>iPhone 用户</b>：iOS 无「继续访问」，须先把电脑项目根目录下的 `rootCA.pem` 用 AirDrop / 邮件 / 微信文件传到 iPhone 安装并开启完全信任（设置 › 通用 › 关于本机 › 证书信任设置），再扫码打开页面。<br>
-    3. 按住页面上的「按住说话」按钮说话，松手即识别并粘贴到电脑光标处。
+    扫码打开手机页面后，按住「按住说话」说话，松手即识别并粘贴到电脑光标处。<br>
+    <span style="color:var(--sub)">首次连接遇到问题？展开下方「手机连不上？点这里排查」。</span>
+  </div>
+</div>
+
+<div class="cards-row side-cards">
+
+<div class="card">
+  <div class="status-title"><span class="dot" id="pm-dot"></span><span>AI 润色模式</span></div>
+  <div class="pm-current" id="pm-current">当前：…</div>
+  <div class="pmodes" id="pmodes">
+    <button class="pmode" data-mode="off">关闭</button>
+    <button class="pmode" data-mode="full">通用润色</button>
+    <button class="pmode" data-mode="logic">理顺逻辑</button>
+    <button class="pmode" data-mode="novel">小说创作</button>
+    <button class="pmode" data-mode="business">公司文案</button>
+    <button class="pmode" data-mode="admin">行政公文</button>
+  </div>
+  <div class="tip" style="margin-top:14px;">
+    切换即时生效，<b>无需重启</b>。选「理顺逻辑」适合说话散乱的人；「小说创作」保留文学口语感；
+    「公司文案 / 行政公文」偏正式书面。不知道选哪个就用「通用润色」。
+  </div>
+</div>
+
+<div class="card">
+  <div class="status-title"><span class="dot" id="drop-dot"></span><span>自动丢弃文本</span>
+    <span id="drop-count" style="margin-left:auto;color:var(--sub);font-size:12px;"></span></div>
+  <div class="tip" style="margin:0 0 12px;">
+    在这里添加你常听到的<b>废话 / 口头禅 / 固定套话</b>。下次识别到的文本里<b>只要出现这些短语，就会被直接删掉</b>——这是确定性规则，<b>不依赖 AI 润色、必定生效</b>。想整句丢弃，就把整句话粘进来。
+  </div>
+  <div class="drop-add">
+    <input id="drop-input" type="text" placeholder="粘贴要丢弃的短语，回车或点「添加」…" />
+    <button id="drop-add">添加</button>
+  </div>
+  <div id="drop-list" class="drop-list"></div>
+</div>
+
+<details class="help">
+  <summary>手机连不上？点这里排查</summary>
+  <ul>
+    <li>① <b>同一网络</b>：手机和电脑必须在同一个 WiFi，或电脑连手机热点。</li>
+    <li>② <b>安卓</b>：首次打开提示证书风险，点「高级 → 继续访问」即可。</li>
+    <li>③ <b>iPhone</b>：iOS 无「继续访问」，须把电脑项目根目录下的 <code>rootCA.pem</code> 用 AirDrop / 邮件 / 微信文件传到 iPhone 安装并开启完全信任（设置 › 通用 › 关于本机 › 证书信任设置），再打开页面。</li>
+    <li>④ <b>拒绝连接 / ERR_CONNECTION_REFUSED？</b> 多为 Windows 防火墙拦截。右键项目里的 <code>allow_firewall.bat</code> → 以管理员身份运行（只需一次）即可放行 8443。</li>
+  </ul>
+</details>
+
+</div>
+</div>
+
+<div class="cards-row">
+
+<div class="card">
+  <div class="status-title"><span class="dot ok" id="pipe-dot"></span><span>实时识别流水线</span></div>
+  <div class="pipe">
+    <div class="node" id="n-asr">识别中</div>
+    <span class="arrow">→</span>
+    <div class="node" id="n-polish">润色中</div>
+    <span class="arrow">→</span>
+    <div class="node" id="n-done">已粘贴</div>
+  </div>
+  <div class="pipe-sub" id="pipe-sub">空闲，等待手机说话…</div>
+  <div class="preview" id="preview">（最近一次识别结果会显示在这里）</div>
+  <div class="stats">
+    <div class="stat"><div class="n" id="st-count">0</div><div class="l">今日次数</div></div>
+    <div class="stat"><div class="n" id="st-chars">0</div><div class="l">今日字数</div></div>
+    <div class="stat"><div class="n" id="st-asr">0</div><div class="l">平均识别(ms)</div></div>
+    <div class="stat"><div class="n" id="st-polish">0</div><div class="l">平均润色(ms)</div></div>
   </div>
 </div>
 
@@ -83,8 +226,16 @@
     <div class="k">证书</div><div class="v" id="s-cert">…</div>
     <div class="k">识别模式</div><div class="v" id="s-model">…</div>
     <div class="k">AI 润色</div><div class="v" id="s-polish">…</div>
+    <div class="k">润色错误</div><div class="v" id="s-polish-err">—</div>
     <div class="k">术语表</div><div class="v" id="s-glossary">…</div>
+    <div class="k">自动丢弃</div><div class="v" id="s-drop">…</div>
     <div class="k">运行时长</div><div class="v" id="s-uptime">…</div>
+  </div>
+
+  <button class="btn-restart" id="btn-restart">🔄 重启服务器（让代码改动生效）</button>
+  <div class="restart-note">
+    改 <b>Python 代码</b>（text_polish.py / voice_input_server.py）或 <b>.env</b> 后，
+    点这里一键重启，免手动 kill。改 <b>desktop.html</b> 或「自动丢弃文本」只需刷新 / 即时生效。
   </div>
 
   <div class="conn-h"><span>最近连接（手机连上会显示在这里）</span></div>
@@ -94,6 +245,7 @@
     想确认手机到底有没有连到电脑？看“最近连接”：出现手机 WiFi 的 IP + 访问了 <b>/</b> 或 <b>/api/ping</b>，
     说明手机已到达服务端；若一直空白，多半是<b>不在同一 WiFi</b> 或 <b>防火墙拦截</b>。
   </div>
+</div>
 </div>
 
 <script>
@@ -111,15 +263,42 @@
     document.getElementById("s-ip").textContent = d.lan_ip + " : " + d.port;
     document.getElementById("s-ffmpeg").innerHTML = d.ffmpeg_ok ? tag("可用", "ok") : tag("缺失 ⚠", "warn");
     document.getElementById("s-cert").innerHTML = d.cert_ok ? tag("已生成", "ok") : tag("缺失", "err");
-    document.getElementById("s-model").innerHTML = d.mimo_api_key_set
-      ? tag("云端 MiMo ASR ✔", "ok")
-      : tag("未配置 MIMO_API_KEY ✗", "err");
+    // 识别模式：以服务端实际 asr_mode 为准（云端 MiMo / 本地 Whisper / 本地 SenseVoice）
+    var modelInfo = ({
+      mimo: { name: "云端 MiMo ASR", needKey: true },
+      whisper: { name: "本地 Whisper ASR", needKey: false },
+      sensevoice: { name: "本地 SenseVoice ASR", needKey: false },
+    })[d.asr_mode] || { name: "云端 MiMo ASR", needKey: true };
+    document.getElementById("s-model").innerHTML = modelInfo.needKey && !d.mimo_api_key_set
+      ? tag("未配置 MIMO_API_KEY ✗", "err")
+      : tag(modelInfo.name + " ✔", "ok");
     document.getElementById("s-polish").innerHTML = d.polish_enabled
-      ? (d.polish_ready ? tag("已开启 ✔", "ok") : tag("开启但未就绪 ⚠", "warn"))
+      ? (d.polish_ready ? tag("已开启 ✔", "ok") : tag("开启但未就绪 ⚠", "warn")) +
+        (d.polish_mode_label ? ' <span style="color:var(--sub)">(' + d.polish_mode_label + ')</span>' : "")
       : tag("关闭", "ok");
+    // 润色失败原因（若有）：直接显示在状态卡，便于排查
+    var pe = document.getElementById("s-polish-err");
+    if (d.polish_last_error) {
+      pe.textContent = d.polish_last_error;
+      pe.style.color = "#e5484d";
+    } else {
+      pe.textContent = "无";
+      pe.style.color = "";
+    }
+    // 润色模式按钮高亮
+    var curMode = d.polish_enabled ? d.polish_mode : "off";
+    document.getElementById("pm-current").textContent =
+      "当前：" + (d.polish_enabled ? d.polish_mode_label : "关闭");
+    document.querySelectorAll("#pmodes .pmode").forEach(function (b) {
+      b.classList.toggle("active", b.dataset.mode === curMode);
+    });
     document.getElementById("s-glossary").textContent =
       d.glossary_count > 0 ? (d.glossary_count + " 条规则已加载") : "无（可建 glossary.txt）";
-    document.getElementById("key-banner").style.display = d.mimo_api_key_set ? "none" : "block";
+    document.getElementById("s-drop").textContent =
+      d.drop_phrases_count > 0 ? (d.drop_phrases_count + " 条规则已加载") : "无（可在下方添加）";
+    // 仅云端 MiMo 模式、且未配置 key 时才提示去填 key；本地模式不需要。
+    document.getElementById("key-banner").style.display =
+      (d.asr_mode === "mimo" && !d.mimo_api_key_set) ? "block" : "none";
     document.getElementById("s-uptime").textContent = fmtUptime(d.uptime_sec);
 
     var wrap = document.getElementById("conn-wrap");
@@ -128,7 +307,7 @@
       wrap.innerHTML = '<div class="empty">暂无连接记录。手机打开页面后会出现在这里。</div>';
       return;
     }
-    var rows = list.slice().reverse().map(function (c) {
+    var rows = list.slice(-10).reverse().map(function (c) {
       var st = c.status;
       var stCls = st >= 200 && st < 400 ? "ok" : (st >= 400 ? "err" : "warn");
       var stTag = tag(st, stCls);
@@ -148,7 +327,10 @@
     document.getElementById("s-cert").textContent = "—";
     document.getElementById("s-model").textContent = "—";
     document.getElementById("s-polish").textContent = "—";
+    document.getElementById("pm-current").textContent = "当前：—";
+    document.querySelectorAll("#pmodes .pmode").forEach(function (b) { b.classList.remove("active"); });
     document.getElementById("s-glossary").textContent = "—";
+    document.getElementById("s-drop").textContent = "—";
     document.getElementById("s-uptime").textContent = "—";
     document.getElementById("key-banner").style.display = "none";
     document.getElementById("conn-wrap").innerHTML =
@@ -182,6 +364,172 @@
       b.textContent = "已复制 ✔"; setTimeout(function () { b.textContent = t; }, 1500);
     });
   });
+
+  // —— 自动丢弃文本（用户自定义必删规则）——
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  async function loadDrop() {
+    try {
+      var r = await fetch("/api/drop_phrases");
+      if (r.ok) renderDrop(await r.json());
+    } catch (e) {}
+  }
+  function renderDrop(data) {
+    var list = (data && data.phrases) || [];
+    var wrap = document.getElementById("drop-list");
+    document.getElementById("drop-count").textContent = list.length ? (list.length + " 条规则") : "未配置";
+    if (!list.length) {
+      wrap.innerHTML = '<div class="drop-empty">暂无丢弃规则。添加后，识别文本里出现这些短语会被自动删除。</div>';
+      return;
+    }
+    wrap.innerHTML = list.map(function (p) {
+      return '<span class="chip">' + esc(p) + '<span class="x" data-p="' + esc(p) + '">✕</span></span>';
+    }).join("");
+  }
+  async function addDrop() {
+    var inp = document.getElementById("drop-input");
+    var p = inp.value.trim();
+    if (!p) return;
+    inp.value = "";
+    try {
+      var r = await fetch("/api/drop_phrases", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add", phrase: p })
+      });
+      if (r.ok) renderDrop(await r.json());
+    } catch (e) {}
+  }
+  async function removeDrop(p) {
+    try {
+      var r = await fetch("/api/drop_phrases", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "remove", phrase: p })
+      });
+      if (r.ok) renderDrop(await r.json());
+    } catch (e) {}
+  }
+  document.getElementById("drop-add").addEventListener("click", addDrop);
+  document.getElementById("drop-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") addDrop();
+  });
+  document.getElementById("drop-list").addEventListener("click", function (e) {
+    if (e.target.classList.contains("x")) removeDrop(e.target.dataset.p);
+  });
+  loadDrop();
+
+  // —— AI 润色模式切换（运行时，无需重启）——
+  async function setPolishMode(mode) {
+    try {
+      var r = await fetch("/api/set_polish_mode", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: mode })
+      });
+      if (r.ok) {
+        var d = await r.json();
+        document.getElementById("pm-current").textContent = "当前：" + (d.enabled ? d.label : "关闭");
+        document.querySelectorAll("#pmodes .pmode").forEach(function (b) {
+          b.classList.toggle("active", b.dataset.mode === (d.enabled ? d.mode : "off"));
+        });
+      }
+    } catch (e) {}
+  }
+  document.querySelectorAll("#pmodes .pmode").forEach(function (b) {
+    b.addEventListener("click", function () { setPolishMode(b.dataset.mode); });
+  });
+
+  // —— 重启服务器（无需手动 kill，self re-exec）——
+  var restarting = false;
+  document.getElementById("btn-restart").addEventListener("click", async function () {
+    if (restarting) return;
+    if (!confirm(
+      "确定重启服务器吗？\n\n约几秒后自动恢复。当前运行时设置（如润色模式）会重置为 .env / 启动菜单的默认值；"
+      + "「自动丢弃文本」等已保存规则不受影响。")) return;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = "🔄 重启中…";
+    restarting = true;
+    try { await fetch("/api/restart", { method: "POST" }); } catch (e) {}
+    // 轮询直到服务恢复，然后刷新页面
+    var tries = 0;
+    var iv = setInterval(async function () {
+      tries++;
+      try {
+        var r = await fetch("/api/status");
+        if (r.ok) { clearInterval(iv); location.reload(); }
+      } catch (e) {
+        if (tries > 30) {
+          clearInterval(iv);
+          btn.disabled = false;
+          btn.textContent = "🔄 重启服务器（让代码改动生效）";
+          restarting = false;
+        }
+      }
+    }, 1000);
+  });
+
+  // —— 实时识别流水线（SSE）——
+  function setNode(id, cls) {
+    var el = document.getElementById(id);
+    el.className = "node" + (cls ? " " + cls : "");
+  }
+  function resetPipe() {
+    setNode("n-asr", ""); setNode("n-polish", ""); setNode("n-done", "");
+    document.getElementById("pipe-dot").className = "dot ok";
+    document.getElementById("pipe-sub").textContent = "空闲，等待手机说话…";
+  }
+  function renderStats(s) {
+    if (!s) return;
+    document.getElementById("st-count").textContent = s.count;
+    document.getElementById("st-chars").textContent = s.chars;
+    document.getElementById("st-asr").textContent = s.avg_asr_ms;
+    document.getElementById("st-polish").textContent = s.avg_polish_ms;
+  }
+  var pipeTimer = null;
+  function connectStream() {
+    var es = new EventSource("/api/stream");
+    es.onmessage = function (ev) {
+      var d;
+      try { d = JSON.parse(ev.data); } catch (e) { return; }
+      if (d.stats) renderStats(d.stats);
+      var sub = document.getElementById("pipe-sub");
+      var dot = document.getElementById("pipe-dot");
+      if (d.stage === "idle") { resetPipe(); }
+      else if (d.stage === "asr") {
+        if (pipeTimer) clearTimeout(pipeTimer);
+        resetPipe();
+        setNode("n-asr", "active");
+        sub.textContent = "识别中…（语音已收到，正在转文字）";
+      } else if (d.stage === "polish") {
+        setNode("n-asr", "done");
+        setNode("n-polish", "active");
+        sub.textContent = "润色中…（去口语 / 加标点 / 分段）";
+      } else if (d.stage === "polish_done") {
+        setNode("n-polish", "done");
+      } else if (d.stage === "done") {
+        setNode("n-asr", "done"); setNode("n-polish", "done"); setNode("n-done", "done");
+        dot.className = "dot ok";
+        var ms = (d.ms != null ? d.ms : 0);
+        var pms = (d.polish_ms != null ? d.polish_ms : 0);
+        sub.innerHTML = "已粘贴 ✔　识别 <b>" + ms + "ms</b>" + (pms ? "　润色 <b>" + pms + "ms</b>" : "");
+        var prev = document.getElementById("preview");
+        prev.textContent = (d.text && d.text.length > 200 ? d.text.slice(0, 200) + "…" : (d.text || ""));
+        renderStats(d.stats);
+        if (pipeTimer) clearTimeout(pipeTimer);
+        pipeTimer = setTimeout(resetPipe, 2600);
+      } else if (d.stage === "error") {
+        setNode("n-asr", "err");
+        dot.className = "dot err";
+        sub.textContent = "出错：" + (d.msg || "未知错误");
+        if (pipeTimer) clearTimeout(pipeTimer);
+        pipeTimer = setTimeout(resetPipe, 3000);
+      }
+    };
+    es.onerror = function () { /* 断线浏览器会自动重连 */ };
+  }
+  connectStream();
 
   poll();
   setInterval(poll, 3000);
