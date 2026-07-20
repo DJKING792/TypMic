@@ -9,8 +9,10 @@ TypMic 服务端（云端 MiMo ASR API + aiohttp）
   以便手机用 HTTPS 访问（getUserMedia 需要安全上下文）。
 - 识别走云端 MiMo API（OpenAI 兼容），无需本地下载模型；
   需在环境变量 MIMO_API_KEY 中配置小米 MiMo API key（https://platform.xiaomimimo.com）。
-- 可选【离线模式】：设置 TYPOMIC_ASR=local 后改用本地 faster-whisper 识别，
-  语音不出本机，无需任何 API key（需 pip install faster-whisper，首次会下载模型）。
+- 可选【离线模式】：设置 TYPOMIC_ASR=whisper（本地 faster-whisper）或
+  TYPOMIC_ASR=sensevoice（本地 SenseVoice）后改用本地识别，语音不出本机，
+  无需任何 API key（需 pip install faster-whisper 或 pip install funasr modelscope，
+  首次会下载模型）。
 - 接口处理中，ffmpeg 转换放到线程，API 请求异步进行，避免卡住事件循环；
   粘贴动作放进 executor，并放慢剪贴板还原节奏，避免粘到旧内容。
 """
@@ -20,6 +22,7 @@ import base64
 import ipaddress
 import json
 import os
+import re
 import socket
 import ssl
 import subprocess
@@ -50,15 +53,17 @@ except ImportError as _e:
 
 pyautogui.FAILSAFE = False
 
-# 本地离线识别后端（faster-whisper），仅离线模式按需启用；核心依赖不受影响。
-from local_asr import LocalWhisperASR
+# 本地离线识别后端（faster-whisper / SenseVoice），仅离线模式按需启用；核心依赖不受影响。
+from local_asr import LocalWhisperASR, LocalSenseVoiceASR
 # 文本后处理：术语表修正 + 可选 AI 润色（失败一律降级为原文，不阻断粘贴）。
-from text_polish import Polisher, load_glossary, apply_glossary
+from text_polish import Polisher, load_glossary, apply_glossary, MODE_LABELS
 
 ROOT = Path(__file__).parent
 TEMP_DIR = ROOT / "audio_temp"
 TEMP_DIR.mkdir(exist_ok=True)
 GLOSSARY_FILE = ROOT / "glossary.txt"
+# 自动丢弃短语：用户自定义的「必删」规则，独立于 AI 润色，确定性生效。
+DROP_FILE = ROOT / "drop_phrases.txt"
 
 CERT_FILE = ROOT / "cert.pem"
 KEY_FILE = ROOT / "key.pem"
@@ -92,12 +97,52 @@ def load_dotenv(path=None):
 # 云端识别使用小米 MiMo ASR API，需在环境变量 MIMO_API_KEY 中配置 API key。
 # 优先取系统环境变量；若没有，则从同目录 .env 读取。
 # 前往 https://platform.xiaomimimo.com 申请。
+def set_env_value(key, value):
+    """在 .env 中更新/插入一个键值（保留其它行），用于把运行时设置持久化、重启后保留。
+
+    只触碰指定 key，不破坏 MIMO_API_KEY 等其它配置。文件不存在则新建。
+    """
+    p = ROOT / ".env"
+    lines = []
+    if p.exists():
+        try:
+            lines = p.read_text(encoding="utf-8").splitlines()
+        except Exception:
+            lines = []
+    out, found = [], False
+    for ln in lines:
+        if ln.strip().startswith("#"):
+            out.append(ln)
+            continue
+        k, _, _ = ln.partition("=")
+        if k.strip() == key:
+            out.append(f"{key}={value}")
+            found = True
+        else:
+            out.append(ln)
+    if not found:
+        out.append(f"{key}={value}")
+    try:
+        p.write_text("\n".join(out) + "\n", encoding="utf-8")
+    except Exception:
+        pass
+
+
 load_dotenv()
 MIMO_API_KEY = os.environ.get("MIMO_API_KEY", "").strip()
 
-# 识别模式：cloud（默认，走小米 MiMo 云端）或 local（本地 faster-whisper 离线）
-ASR_MODE = os.environ.get("TYPOMIC_ASR", "cloud").strip().lower()
+# 识别模式：mimo（默认，云端小米 MiMo）/ whisper（本地 faster-whisper）/ sensevoice（本地 SenseVoice）
+# 兼容旧值：cloud -> mimo，local -> whisper。
+_ASR_RAW = os.environ.get("TYPOMIC_ASR", "cloud").strip().lower()
+_ASR_ALIAS = {
+    "cloud": "mimo", "mimo": "mimo",
+    "local": "whisper", "whisper": "whisper",
+    "sensevoice": "sensevoice", "sv": "sensevoice",
+}
+ASR_MODE = _ASR_ALIAS.get(_ASR_RAW, "mimo")
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small").strip() or "small"
+SENSEVOICE_MODEL = os.environ.get("SENSEVOICE_MODEL", "iic/SenseVoiceSmall").strip() or "iic/SenseVoiceSmall"
+SENSEVOICE_DEVICE = os.environ.get("SENSEVOICE_DEVICE", "cpu").strip() or "cpu"
 
 # --------------------------------------------------------------------------- #
 # AI 润色 / 术语表（文本后处理，可选增益，默认关闭）
@@ -108,20 +153,78 @@ POLISH_ON = os.environ.get("TYPOMIC_POLISH", "off").strip().lower() == "on"
 POLISH_URL = os.environ.get(
     "TYPOMIC_POLISH_URL", "https://api.xiaomimimo.com/v1/chat/completions"
 ).strip()
-# 润色模型名（需为支持 chat 的模型）；默认 mimo-v2.5-flash，按你的账号可改。
-POLISH_MODEL = os.environ.get("TYPOMIC_POLISH_MODEL", "mimo-v2.5-flash").strip()
+# 润色模型名（需为支持 chat 的模型）。实测 api.xiaomimimo.com 的 chat 端点
+# 不支持 "mimo-v2.5-flash"（返回 HTTP 400 Unsupported model），可用模型为
+# "mimo-v2.5"（推荐，快且稳）；"mimo-v2.5-pro" 可用但偏慢易超时。默认用 mimo-v2.5。
+POLISH_MODEL = os.environ.get("TYPOMIC_POLISH_MODEL", "mimo-v2.5").strip()
 # 润色 API key：默认复用 MIMO_API_KEY，也可单独配置。
 POLISH_API_KEY = os.environ.get("TYPOMIC_POLISH_API_KEY", MIMO_API_KEY).strip()
-# 润色模式：full（默认，去口语+顺句+分段+标点）或 punctuate（只补标点不改写）。
+# 润色模式：full（默认，通用润色）/ logic / novel / business / admin。
+# 云端 mimo-v2.5-asr 已原生输出带标点的文本，本地 SenseVoice 同样自带标点；
+# 本地 Whisper / SenseVoice 用户也不走 AI 润色，故不提供「只加标点」模式。
 POLISH_MODE = os.environ.get("TYPOMIC_POLISH_MODE", "full").strip().lower()
+if POLISH_MODE not in MODE_LABELS:
+    POLISH_MODE = "full"
 
-polisher = Polisher(POLISH_URL, POLISH_API_KEY, POLISH_MODEL, timeout=30, mode=POLISH_MODE)
+
+def build_polisher(mode=POLISH_MODE):
+    """根据当前润色配置创建一个 Polisher 实例。运行时切换模式时复用。"""
+    return Polisher(POLISH_URL, POLISH_API_KEY, POLISH_MODEL, timeout=30, mode=mode)
+
+
+polisher = build_polisher(POLISH_MODE)
 # 术语表开关：默认 on（有 glossary.txt 即生效）；设 TYPOMIC_GLOSSARY=off 可关闭。
 GLOSSARY_ENABLED = os.environ.get("TYPOMIC_GLOSSARY", "on").strip().lower() == "on"
 # 术语表：dict 形式；关闭或文件不存在则为空（不生效）。
 GLOSSARY_REPLACEMENTS, GLOSSARY_TERMS = (
     load_glossary(GLOSSARY_FILE) if GLOSSARY_ENABLED else ({}, set())
 )
+
+
+# --------------------------------------------------------------------------- #
+# 自动丢弃短语（用户自定义「必删」规则，确定性生效，不依赖 AI 润色）
+# --------------------------------------------------------------------------- #
+def load_drop_phrases(path):
+    """从 drop_phrases.txt 读取一行一条的丢弃短语；# 开头为注释，空行忽略。"""
+    if not path.exists():
+        return []
+    out = []
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                out.append(line)
+    except Exception:
+        pass
+    return out
+
+
+def save_drop_phrases():
+    """把当前丢弃短语持久化到 drop_phrases.txt（含注释头）。"""
+    try:
+        with open(DROP_FILE, "w", encoding="utf-8") as f:
+            f.write("# 一行一条：识别文本里若出现这些短语，将自动删除（用于去掉固定废话/口头禅）。\n")
+            f.write("# 想整句丢弃，就把整句话粘进来；支持修改后重启自动加载。\n")
+            for p in DROP_PHRASES:
+                f.write(p + "\n")
+    except Exception:
+        pass
+
+
+def apply_drop_phrases(text):
+    """删除文本中所有命中丢弃列表的短语（大小写不敏感），并规整多余空白。"""
+    if not DROP_PHRASES or not text:
+        return text
+    t = text
+    for p in DROP_PHRASES:
+        if not p:
+            continue
+        t = re.sub(re.escape(p), "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s+", " ", t).strip()
+    return t
+
+
+DROP_PHRASES = load_drop_phrases(DROP_FILE)
 
 asr = None  # 懒加载，避免启动即占内存
 routes = web.RouteTableDef()
@@ -483,15 +586,30 @@ def send_key_action(action: str) -> None:
 # --------------------------------------------------------------------------- #
 # HTTP 接口
 # --------------------------------------------------------------------------- #
+# 构建标记：每次改手机页/桌面页时递增，用于让客户端（尤其 iOS Safari 对自签证书
+# 缓存极顽固）强制拉取新页面。同时配合 no-store 头 + 二维码带 ?v= 双重保险。
+PAGE_BUILD = "20260721B"
+
+
+def _no_cache(resp):
+    """禁止浏览器缓存页面（针对 iOS Safari 无视 no-store 的兜底）。"""
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
+
+
 @routes.get("/")
 async def index(request):
-    return web.FileResponse(ROOT / "index.html")
+    resp = web.FileResponse(ROOT / "index.html")
+    return _no_cache(resp)
 
 
 @routes.get("/desktop")
 async def desktop(request):
     # 电脑端扫码页：显示访问地址二维码，手机扫一扫直接打开
-    return web.FileResponse(ROOT / "desktop.html")
+    resp = web.FileResponse(ROOT / "desktop.html")
+    return _no_cache(resp)
 
 
 @routes.get("/desktop/qr.png")
@@ -503,7 +621,9 @@ async def desktop_qr(request):
     except ImportError:
         return web.Response(status=500, text="缺少依赖，请先 pip install 'qrcode[pil]'")
     ip = get_wifi_ip()
-    url = f"https://{ip}:8443"
+    # 二维码带 ?v= 构建号：每次改版号后重扫，手机会请求一个“新 URL”，
+    # 必拉最新页面（绕开 iOS Safari 对自签 HTTPS 的顽固缓存）。
+    url = f"https://{ip}:8443?v={PAGE_BUILD}"
     buf = io.BytesIO()
     qrcode.make(url).save(buf, format="PNG")
     return web.Response(body=buf.getvalue(), content_type="image/png")
@@ -536,13 +656,20 @@ async def api_status(request):
         "server_url": f"https://{get_wifi_ip()}:8443",
         "ffmpeg_ok": ffmpeg_available(),
         "cert_ok": CERT_FILE.exists() and KEY_FILE.exists() and CA_CERT_FILE.exists(),
-        "mode": "local-whisper" if ASR_MODE == "local" else "cloud-mimo",
+        "mode": {
+            "mimo": "cloud-mimo",
+            "whisper": "local-whisper",
+            "sensevoice": "local-sensevoice",
+        }.get(ASR_MODE, "cloud-mimo"),
         "asr_mode": ASR_MODE,
         "mimo_api_key_set": bool(MIMO_API_KEY),
         "polish_enabled": POLISH_ON,
         "polish_ready": polisher.ready(),
-        "polish_mode": POLISH_MODE,
+        "polish_mode": POLISH_MODE if POLISH_ON else "off",
+        "polish_mode_label": MODE_LABELS.get(POLISH_MODE, POLISH_MODE) if POLISH_ON else "关闭",
+        "polish_last_error": getattr(polisher, "last_error", None),
         "glossary_count": len(GLOSSARY_REPLACEMENTS),
+        "drop_phrases_count": len(DROP_PHRASES),
         "uptime_sec": int(time.time() - START_TIME),
         "stats": stats_snapshot(),
         "connections": CONNECTION_LOG[-30:],
@@ -601,15 +728,20 @@ async def transcribe_api(request):
         return web.json_response({"ok": False, "error": f"音频转换失败: {e}"})
 
     if asr is None:
-        asr = LocalWhisperASR(WHISPER_MODEL) if ASR_MODE == "local" else MimoASR()
-    # 调用识别（云端 MiMo 或本地 faster-whisper；异步，不阻塞事件循环）
+        if ASR_MODE == "whisper":
+            asr = LocalWhisperASR(WHISPER_MODEL)
+        elif ASR_MODE == "sensevoice":
+            asr = LocalSenseVoiceASR(SENSEVOICE_MODEL)
+        else:
+            asr = MimoASR()
+    # 调用识别（云端 MiMo / 本地 faster-whisper / 本地 SenseVoice；异步，不阻塞事件循环）
     broadcast({"stage": "asr", "ts": int(time.time() * 1000)})
     try:
         t0 = time.time()
         text = await asr.transcribe(wav_path)
         asr_ms = (time.time() - t0) * 1000
     except Exception as e:
-        tag = "Local" if ASR_MODE == "local" else "MiMo"
+        tag = {"mimo": "MiMo", "whisper": "Whisper", "sensevoice": "SenseVoice"}.get(ASR_MODE, "ASR")
         print(f"[{tag}] {e}", flush=True)
         broadcast({"stage": "error", "msg": f"识别失败: {e}"})
         return web.json_response({"ok": False, "error": f"识别失败: {e}"})
@@ -630,6 +762,9 @@ async def transcribe_api(request):
         if GLOSSARY_ENABLED:
             text = apply_glossary(text, GLOSSARY_REPLACEMENTS)  # 润色后再保一道术语
         broadcast({"stage": "polish_done", "ms": round(polish_ms)})
+
+    # —— 自动丢弃短语（用户自定义，必定生效，不依赖 AI 润色）——
+    text = apply_drop_phrases(text)
 
     # 粘贴放在 executor，并等它完成再返回，保证时序
     loop = asyncio.get_running_loop()
@@ -667,6 +802,90 @@ async def control_api(request):
     return web.json_response({"ok": True, "action": action})
 
 
+@routes.get("/api/drop_phrases")
+async def drop_phrases_get(request):
+    """返回当前所有自动丢弃短语。"""
+    return web.json_response({"phrases": DROP_PHRASES})
+
+
+@routes.post("/api/drop_phrases")
+async def drop_phrases_post(request):
+    """增删自动丢弃短语：{action:"add"|"remove"|"clear", phrase:"..."}。"""
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "无效的请求体"}, status=400)
+    if not isinstance(data, dict):
+        return web.json_response({"ok": False, "error": "无效的请求体"}, status=400)
+    action = (data.get("action") or "").strip().lower()
+    phrase = (data.get("phrase") or "").strip()
+    if action == "add":
+        if phrase and phrase not in DROP_PHRASES:
+            DROP_PHRASES.append(phrase)
+            save_drop_phrases()
+        return web.json_response({"ok": True, "phrases": DROP_PHRASES})
+    elif action == "remove":
+        if phrase in DROP_PHRASES:
+            DROP_PHRASES.remove(phrase)
+            save_drop_phrases()
+        return web.json_response({"ok": True, "phrases": DROP_PHRASES})
+    elif action == "clear":
+        DROP_PHRASES.clear()
+        save_drop_phrases()
+        return web.json_response({"ok": True, "phrases": []})
+    return web.json_response({"ok": False, "error": "未知操作"}, status=400)
+
+
+@routes.post("/api/set_polish_mode")
+async def set_polish_mode_api(request):
+    """运行时切换 AI 润色模式 / 开关：{mode:"off"|"full"|"logic"|"novel"|"business"|"admin"}。
+    切换立即生效，无需重启；返回当前状态。"""
+    global POLISH_ON, POLISH_MODE, polisher
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "无效的请求体"}, status=400)
+    mode = (data.get("mode") or "").strip().lower()
+    if mode == "off":
+        POLISH_ON = False
+    elif mode in MODE_LABELS:
+        POLISH_ON = True
+        POLISH_MODE = mode
+        polisher = build_polisher(POLISH_MODE)
+    else:
+        return web.json_response(
+            {"ok": False, "error": "未知模式", "valid": ["off"] + list(MODE_LABELS.keys())},
+            status=400,
+        )
+    # 持久化到 .env，使「重启服务器」后仍能保留当前润色角色/开关选择。
+    set_env_value("TYPOMIC_POLISH", "on" if POLISH_ON else "off")
+    set_env_value("TYPOMIC_POLISH_MODE", POLISH_MODE if POLISH_ON else "off")
+    return web.json_response({
+        "ok": True,
+        "enabled": POLISH_ON,
+        "mode": POLISH_MODE if POLISH_ON else "off",
+        "label": MODE_LABELS.get(POLISH_MODE, POLISH_MODE) if POLISH_ON else "关闭",
+    })
+
+
+@routes.post("/api/restart")
+async def restart_api(request):
+    """重启服务进程（self re-exec），让 Python 代码改动生效，无需手动 kill。
+
+    先返回响应，再短暂延时后 os.execv 替换当前进程——端口会被旧进程释放、
+    新进程重新监听，因此桌面页刷新即可恢复。
+    """
+    async def _do_restart():
+        await asyncio.sleep(0.5)
+        try:
+            script = str(Path(__file__).resolve())
+            os.execv(sys.executable, [sys.executable, script] + sys.argv[1:])
+        except Exception as e:  # pragma: no cover - 重启失败兜底
+            print("重启失败：", e)
+    asyncio.create_task(_do_restart())
+    return web.json_response({"ok": True, "message": "正在重启，请稍候…（约几秒）"})
+
+
 # --------------------------------------------------------------------------- #
 # 启动
 # --------------------------------------------------------------------------- #
@@ -682,27 +901,11 @@ def print_startup_diagnostics(ip):
     print(line)
     print(f"本机局域网 IP : {ip}")
     print(f"手机访问地址  : https://{ip}:8443")
-    print(f"电脑扫码页    : https://localhost:8443/desktop")
+    print(f"电脑打开地址  : https://localhost:8443/desktop")
     print(f"ffmpeg 可用   : {'是' if ffmpeg_ok else '否（音频转换会失败，请安装 ffmpeg 并加入 PATH）'}")
     print(f"证书状态      : {'已生成' if cert_ok else '将自动生成'}")
     print(f"端口 8443     : {'已被占用！' if port_used else '空闲，可正常监听'}")
-    if ASR_MODE == "local":
-        try:
-            import faster_whisper  # noqa: F401
-            fw_ok = True
-        except Exception:
-            fw_ok = False
-        print(f"识别模式      : 本地 faster-whisper 离线（模型={WHISPER_MODEL}，无需 API key）")
-        print(f"faster-whisper: {'已安装 ✔' if fw_ok else '未安装！离线模式需先 pip install faster-whisper'}")
-        if not fw_ok:
-            RED = "\033[91m"
-            RESET = "\033[0m"
-            bar = "!" * 62
-            print(RED + bar + RESET)
-            print(RED + "!!! 离线模式已开启，但缺少 faster-whisper !!!" + RESET)
-            print(RED + "!!! 请安装： pip install faster-whisper" + RESET)
-            print(RED + bar + RESET)
-    else:
+    if ASR_MODE == "mimo":
         print(f"识别模式      : 云端 MiMo-V2.5-ASR（小米 API，OpenAI 兼容）")
         if MIMO_API_KEY:
             print(f"MIMO_API_KEY  : 已配置 ✔")
@@ -718,12 +921,55 @@ def print_startup_diagnostics(ip):
             print(RED + "        MIMO_API_KEY=你的key" + RESET)
             print(RED + "    申请地址：https://platform.xiaomimimo.com" + RESET)
             print(RED + bar + RESET)
+    elif ASR_MODE == "whisper":
+        try:
+            import faster_whisper  # noqa: F401
+            fw_ok = True
+        except Exception:
+            fw_ok = False
+        print(f"识别模式      : 本地 faster-whisper 离线（模型={WHISPER_MODEL}，无需 API key）")
+        print(f"faster-whisper: {'已安装 ✔' if fw_ok else '未安装！离线模式需先 pip install faster-whisper'}")
+        if not fw_ok:
+            RED = "\033[91m"
+            RESET = "\033[0m"
+            bar = "!" * 62
+            print(RED + bar + RESET)
+            print(RED + "!!! 离线模式已开启，但缺少 faster-whisper !!!" + RESET)
+            print(RED + "!!! 请安装： pip install faster-whisper" + RESET)
+            print(RED + bar + RESET)
+    else:  # sensevoice
+        try:
+            import funasr  # noqa: F401
+            sv_ok = True
+        except Exception:
+            sv_ok = False
+        print(f"识别模式      : 本地 SenseVoice 离线（模型={SENSEVOICE_MODEL}，设备={SENSEVOICE_DEVICE}，无需 API key）")
+        print(f"funasr        : {'已安装 ✔' if sv_ok else '未安装！离线模式需先 pip install funasr modelscope'}")
+        if sv_ok:
+            # 后台预热：提前把 ~1GB 模型加载进内存，避免首次说话时像卡死
+            import threading
+            def _sv_warmup():
+                try:
+                    sv = LocalSenseVoiceASR(SENSEVOICE_MODEL)
+                    sv._get_model()
+                    print("[SenseVoice] 模型预热完成，首次识别不再等待", flush=True)
+                except Exception as _e:
+                    print(f"[SenseVoice] 预热失败（不影响启动，首次识别时再加载）: {_e}", flush=True)
+            threading.Thread(target=_sv_warmup, daemon=True).start()
+        if not sv_ok:
+            RED = "\033[91m"
+            RESET = "\033[0m"
+            bar = "!" * 62
+            print(RED + bar + RESET)
+            print(RED + "!!! 离线模式已开启，但缺少 funasr !!!" + RESET)
+            print(RED + "!!! 请安装： pip install funasr modelscope" + RESET)
+            print(RED + bar + RESET)
     if local_ips:
         print("本机所有 IPv4 : " + ", ".join(local_ips))
     # 文本后处理状态
     if POLISH_ON:
         if polisher.ready():
-            mode_cn = "只加标点" if POLISH_MODE == "punctuate" else "全量润色"
+            mode_cn = MODE_LABELS.get(POLISH_MODE, POLISH_MODE)
             print(f"AI 润色        : 已开启 ✔（模式={mode_cn}，模型={POLISH_MODEL}）")
         else:
             YEL = "\033[93m"
@@ -744,14 +990,7 @@ def print_startup_diagnostics(ip):
     if port_used:
         print("⚠ 警告：端口 8443 已被占用，手机可能连不上或启动失败。")
         print("  请关闭占用该端口的程序，或修改本文件端口后重启。")
-    print("手机连不上时，按此排查：")
-    print("  1. 手机和电脑必须在【同一个 WiFi】（不能用手机流量）。")
-    print("  2. 安卓首次打开会提示证书风险，点『高级』->『继续』即可。")
-    print("     iPhone 无法下载证书/点继续：须先把电脑端的 rootCA.pem")
-    print("     用 AirDrop / 邮件 / 微信文件传到 iPhone 安装并开启完全信任，再打开页面。")
-    print("  3. 若提示『已拒绝连接 / ERR_CONNECTION_REFUSED』：多为 Windows")
-    print("     防火墙拦截，请允许 python 入站，或放行 8443 端口。")
-    print("  4. 电脑端打开 https://localhost:8443/desktop 可看实时连接状态。")
+    print("控制面板：按住 Ctrl 并点击 https://localhost:8443/desktop 打开")
     print(line)
 
 
@@ -766,9 +1005,9 @@ async def main():
     ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_ctx.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
 
-    runner = web.AppRunner(app)
+    runner = web.AppRunner(app, access_log=None)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 8443, ssl_context=ssl_ctx)
+    site = web.TCPSite(runner, "0.0.0.0", 8443, reuse_address=True, ssl_context=ssl_ctx)
     try:
         await site.start()
     except OSError as e:
@@ -785,15 +1024,6 @@ async def main():
         return
 
     print("服务已启动，保持此窗口打开。按 Ctrl+C 停止。\n")
-
-    # 控制台也打印一个 ASCII 二维码，方便直接扫
-    try:
-        import qrcode
-        qr = qrcode.QRCode(border=1)
-        qr.add_data(f"https://{ip}:8443")
-        qr.print_ascii()
-    except Exception:
-        pass
 
     while True:
         await asyncio.sleep(3600)
