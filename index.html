@@ -2,54 +2,62 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<!-- TYPOMIC_BUILD=20260721B 浅色高级感版（手机页=根路由 / ，对照此标记判断服务端是否发新版） -->
+<meta name="typmic-build" content="20260721B">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>TypMic</title>
 <style>
   :root {
-    --bg: #030712;
+    --bg-top: #eef2fb;
+    --bg-bottom: #e3e8f2;
     --acc: #3b82f6;
-    --acc-glow: rgba(59, 130, 246, 0.4);
+    --acc-2: #6366f1;
+    --acc-glow: rgba(59, 130, 246, 0.35);
     --rec: #ef4444;
-    --rec-glow: rgba(239, 68, 68, 0.5);
+    --rec-glow: rgba(239, 68, 68, 0.45);
     --ok: #10b981;
-    --err: #f43f5e;
-    --txt-main: #f8fafc;
-    --txt-mute: #475569;
+    --err: #e11d48;
+    --txt-main: #0f172a;
+    --txt-mute: #64748b;
+    --card: rgba(255,255,255,0.7);
+    --card-border: rgba(15,23,42,0.08);
+    --shadow: 0 10px 40px rgba(15,23,42,0.10);
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  
-  html, body { 
-    margin: 0; padding: 0; height: 100%; 
-    background-color: var(--bg);
+
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+    background-attachment: fixed;
     color: var(--txt-main);
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
     -webkit-font-smoothing: antialiased;
     overflow: hidden;
   }
 
-  /* 动态环境光晕背景 - 极其高级的氛围感来源 */
+  /* 柔和光晕背景，浅色下做氛围不刺眼 */
   .ambient-glow {
     position: absolute;
-    top: -10%; left: 50%; transform: translateX(-50%);
-    width: 80vw; height: 50vh;
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(0,0,0,0) 70%);
+    top: -15%; left: 50%; transform: translateX(-50%);
+    width: 90vw; height: 45vh;
+    background: radial-gradient(circle, rgba(99,102,241,0.18) 0%, rgba(255,255,255,0) 70%);
     filter: blur(60px);
     z-index: 0;
     pointer-events: none;
     transition: background 0.8s ease, width 0.8s ease;
   }
   body.is-recording .ambient-glow {
-    background: radial-gradient(circle, rgba(239, 68, 68, 0.2) 0%, rgba(0,0,0,0) 70%);
+    background: radial-gradient(circle, rgba(239,68,68,0.22) 0%, rgba(255,255,255,0) 70%);
     width: 100vw;
   }
 
   /* 核心骨架：去卡片化，全面屏剧场布局 */
-  .wrap { 
+  .wrap {
     position: relative; z-index: 1;
-    max-width: 600px; margin: 0 auto; 
-    padding: 40px 24px calc(30px + env(safe-area-inset-bottom)); 
-    display: flex; flex-direction: column; height: 100%; 
+    max-width: 600px; margin: 0 auto;
+    padding: 40px 24px calc(56px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; height: 100%;
   }
 
   /* 极简流体诊断栏 */
@@ -63,7 +71,7 @@
   .diag .bad { color: var(--err); }
 
   /* 电影字幕式的文本展示区 */
-  .result { 
+  .result {
     flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
     overflow-y: auto; margin: 40px 0; padding-right: 4px;
     text-align: center; scroll-behavior: smooth;
@@ -73,85 +81,90 @@
 
   .result div {
     font-size: 26px; font-weight: 600; line-height: 1.5;
-    background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+    background: linear-gradient(180deg, #1e293b 0%, #475569 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin-bottom: 16px;
     animation: textAppear 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
-  .result .ph { 
+  .result .ph {
     font-size: 18px; font-weight: 400; line-height: 1.8;
     color: var(--txt-mute); background: none; -webkit-text-fill-color: initial;
     animation: pulseMute 2s infinite ease-in-out;
   }
 
   /* 底部状态通知 */
-  .status { 
+  .status {
     text-align: center; font-size: 13px; font-weight: 500;
     color: var(--txt-mute); min-height: 20px; margin-bottom: 24px;
     transition: all 0.3s; letter-spacing: 0.3px;
   }
   .status.err { color: var(--err); animation: shake 0.4s ease; }
-  .status.ok { color: var(--ok); text-shadow: 0 0 12px rgba(16,185,129,0.3); }
+  .status.ok { color: var(--ok); }
 
-  /* 绝对C位：巨幕触控交互区 */
+  /* 绝对C位：巨幕触控交互区，玻璃质感控制坞 */
   .control-panel {
     display: flex; flex-direction: column; align-items: center; gap: 16px;
+    padding: 22px 18px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 
-  /* 赛博朋克极简圆钮 */
+  /* 麦克风圆钮：浅色下的蓝色渐变主角 */
   .mic-wrapper { position: relative; }
-  .mic-btn { 
-    width: 96px; height: 96px; border-radius: 50%; 
-    background: #ffffff; border: none;
-    color: #000000; font-size: 14px; font-weight: 700; 
+  .mic-btn {
+    width: 96px; height: 96px; border-radius: 50%;
+    background: linear-gradient(145deg, var(--acc) 0%, var(--acc-2) 100%);
+    border: none;
+    color: #ffffff; font-size: 14px; font-weight: 700; letter-spacing: 0.5px;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 0 0 0 rgba(255,255,255, 0.15), 0 8px 32px rgba(0,0,0,0.5); 
-    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+    box-shadow: 0 10px 28px var(--acc-glow);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     user-select: none; touch-action: none; cursor: pointer;
   }
-  
-  /* 录音激活：纯白纽变深邃黑红，释放巨大的霓虹光晕 */
-  body.is-recording .mic-btn { 
-    background: var(--rec); color: #ffffff;
-    box-shadow: 0 0 0 20px rgba(239, 68, 68, 0), 0 0 40px var(--rec-glow); 
+
+  /* 录音激活：蓝钮变红，柔和红色光晕 */
+  body.is-recording .mic-btn {
+    background: linear-gradient(145deg, #f87171 0%, var(--rec) 100%);
+    color: #ffffff;
+    box-shadow: 0 0 0 18px rgba(239,68,68,0.12), 0 12px 30px var(--rec-glow);
     animation: micPulse 1.5s infinite cubic-bezier(0.16, 1, 0.3, 1);
     transform: scale(1.05);
   }
   .mic-btn:active { transform: scale(0.92); transition: transform 0.1s; }
 
-  /* 提示语与附属动作 */
-  .hint { font-size: 11px; color: var(--txt-mute); letter-spacing: 0.5px; text-align: center; }
-  .hint a { color: var(--acc); text-decoration: none; font-weight: 500; margin-top: 4px; display: inline-block; }
-  
-  .retry { 
+  .retry {
     display: none; position: absolute; top: -45px; left: 50%; transform: translateX(-50%);
-    padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(244,63,94,0.4);
-    background: rgba(244,63,94,0.1); color: var(--err); font-size: 11px; font-weight: 600;
+    padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(225,29,72,0.35);
+    background: rgba(225,29,72,0.08); color: var(--err); font-size: 11px; font-weight: 600;
     cursor: pointer; letter-spacing: 0.5px; text-transform: uppercase;
   }
   .retry.show { display: block; animation: textAppear 0.3s ease; }
 
   /* 四键控制条：回车 / 换行 / 删除 / 清空（与录音解耦，对任意输入生效） */
   .keyrow {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
-    width: 100%; max-width: 360px; margin-top: 6px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    width: 100%; max-width: 360px; margin-top: 8px;
   }
   .key-btn {
     appearance: none; -webkit-appearance: none;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    background: rgba(148, 163, 184, 0.08); color: var(--txt-main);
-    border-radius: 14px; padding: 13px 0;
-    font-size: 14px; font-weight: 600; letter-spacing: 0.5px;
+    border: 1px solid var(--card-border);
+    background: rgba(255,255,255,0.75); color: var(--txt-main);
+    border-radius: 14px; padding: 17px 0;
+    font-size: 15px; font-weight: 600; letter-spacing: 0.5px;
     cursor: pointer; user-select: none; touch-action: manipulation;
     transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
   }
-  .key-btn:active { background: rgba(59, 130, 246, 0.25); border-color: var(--acc); transform: scale(0.95); }
+  .key-btn:active { background: rgba(59, 130, 246, 0.15); border-color: var(--acc); transform: scale(0.95); }
   .key-btn.busy { opacity: 0.5; pointer-events: none; }
 
   /* 精巧的现代动画 */
   @keyframes micPulse {
-    0% { box-shadow: 0 0 0 0 rgba(239,68,68, 0.4), 0 0 40px var(--rec-glow); }
-    100% { box-shadow: 0 0 0 24px rgba(239,68,68, 0), 0 0 40px var(--rec-glow); }
+    0% { box-shadow: 0 0 0 0 rgba(239,68,68, 0.35), 0 12px 30px var(--rec-glow); }
+    100% { box-shadow: 0 0 0 24px rgba(239,68,68, 0), 0 12px 30px var(--rec-glow); }
   }
   @keyframes pulseMute {
     0%, 100% { opacity: 0.5; transform: scale(0.99); }
@@ -178,7 +191,7 @@
     <span class="diag" id="diag">ENV..</span>
     <span class="diag" id="srv">SRV..</span>
   </header>
-  
+
   <!-- 巨幕文本区 -->
   <div class="result" id="result">
     <div class="ph">HOLD TO SPEAK<br><span style="font-size:13px; opacity: 0.7;">松手即刻识别并注入电脑光标</span></div>
@@ -186,7 +199,7 @@
 
   <!-- 动态反馈与控制 -->
   <div class="status" id="status"></div>
-  
+
   <div class="control-panel">
     <div class="mic-wrapper">
       <button class="retry" id="retry">RESET MIC</button>
@@ -198,7 +211,6 @@
       <button class="key-btn" data-action="backspace">删除</button>
       <button class="key-btn" data-action="clear">清空</button>
     </div>
-    <span class="hint">安卓用户点「高级 → 继续访问」即可使用；iPhone 因 iOS 无「继续访问」，须先把电脑项目根目录下的 <code>rootCA.pem</code> 用 AirDrop / 邮件 / 微信文件传到手机，安装描述文件并在「设置 › 通用 › 关于本机 › 证书信任设置」开启完全信任后，再打开本页。</span>
   </div>
 </div>
 
@@ -211,11 +223,11 @@
   var diagEl = document.getElementById("diag");
   var retryBtn = document.getElementById("retry");
 
-  var stream = null;       
+  var stream = null;
   var recorder = null;
   var chunks = [];
   var recording = false;
-  var wakeLock = null;      
+  var wakeLock = null;
 
   async function requestWakeLock() {
     try { if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); }
@@ -232,7 +244,7 @@
   function showText(t) {
     var ph = resultEl.querySelector(".ph");
     if (ph) ph.remove();
-    
+
     var span = document.createElement("div");
     span.textContent = t;
     resultEl.appendChild(span);
@@ -244,7 +256,7 @@
     var lines = [];
     var isSecure = location.protocol === "https:" || location.hostname === "localhost";
     lines.push("环境: " + (isSecure ? '<span class="good">SECURE</span>' : '<span class="bad">INSECURE</span>'));
-    
+
     if (navigator.permissions && navigator.permissions.query) {
       try {
         var p = await navigator.permissions.query({ name: "microphone" });
@@ -264,7 +276,7 @@
 
   async function ensureMic() {
     if (stream) return stream;
-    stopStream(); 
+    stopStream();
     stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
     });
@@ -291,7 +303,7 @@
       recorder.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
       recorder.onstop = onStop;
       recorder.start();
-      requestWakeLock();   
+      requestWakeLock();
       recording = true;
       document.body.classList.add("is-recording");
       btn.textContent = "REC";
@@ -305,7 +317,7 @@
   function stopRecording() {
     if (!recording) return;
     recording = false;
-    releaseWakeLock();     
+    releaseWakeLock();
     document.body.classList.remove("is-recording");
     btn.textContent = "TALK";
     try { recorder.stop(); } catch (e) {}
@@ -313,7 +325,7 @@
 
   async function onStop() {
     var blob = new Blob(chunks, { type: (recorder && recorder.mimeType) || "audio/webm" });
-    stopStream(); 
+    stopStream();
     setStatus("AI 正在深度识别...");
     var fd = new FormData();
     fd.append("audio", blob, "rec.webm");
@@ -340,6 +352,8 @@
       retryBtn.classList.add("show");
     } else if (name === "NotAllowedError") {
       setStatus("权限遭拒：请在浏览器设置中允许麦克风", "err");
+    } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+      setStatus("未检测到麦克风", "err");
     } else {
       setStatus("错误: " + name, "err");
       retryBtn.classList.add("show");
