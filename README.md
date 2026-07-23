@@ -18,6 +18,8 @@
   <img src="https://img.shields.io/badge/ASR-MiMo%20%7C%20Whisper%20%7C%20SenseVoice-orange?style=flat-square" alt="ASR Engine">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square" alt="Platform">
   <img src="https://github.com/DJKING792/TypMic/actions/workflows/ci.yml/badge.svg" alt="CI">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/DJKING792/GIST_ID/raw/stats_count.json" alt="使用次数">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/DJKING792/GIST_ID/raw/stats_chars.json" alt="已输入字数">
 </p>
 
 ## 目录
@@ -28,6 +30,15 @@
   - [Windows](#windows)
   - [macOS](#macos)
   - [手机连接](CONNECT_PHONE.md)
+
+## 作者真实用量
+
+本项目作者自己每天都在用，下面两个 badge 是**真实累计**数据（不是刷量），通过 shields.io 实时读取一个独立 Gist：
+
+![使用次数](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/DJKING792/GIST_ID/raw/stats_count.json)
+![已输入字数](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/DJKING792/GIST_ID/raw/stats_chars.json)
+
+数据来自本地 `usage_stats.json`，由 `update_usage_badge.py` 每天定时推到 Gist（详见脚本内注释）。把上面 URL 里的 `GIST_ID` 换成你自己的即可。
 
 ## 与同类工具对比
 
@@ -97,12 +108,14 @@ python voice_input_server.py
 **离线模式**（无需 API key、语音不出本机）：把上面的 `export MIMO_API_KEY` 那行去掉，末尾改跑下面几行——首次启动会自动下载识别模型。`TYPOMIC_ASR` 可选 `whisper`（faster-whisper）或 `sensevoice`（SenseVoice，自带标点 / 逆文本归一化）：
 
 ```bash
-# 选一个本地引擎安装依赖：
-pip install faster-whisper            # whisper 引擎
-# pip install funasr modelscope       # sensevoice 引擎
-export TYPOMIC_ASR=whisper            # 或 sensevoice
+# 选一个本地引擎安装依赖（只装对应引擎，互不牵连，whisper 不装 torch）：
+pip install -r requirements-whisper.txt      # whisper 引擎
+# pip install -r requirements-sensevoice.txt # sensevoice 引擎（含纯 CPU 版 torch）
+export TYPOMIC_ASR=whisper                   # 或 sensevoice
 python voice_input_server.py
 ```
+
+> 模型权重会自动下载到项目内的 `models/` 目录（如 `models/whisper-small`、`models/SenseVoiceSmall`），每个模型一个独立文件夹，不会污染系统目录；`models/`、`usage_stats.json` 等均不纳入发布包与 Git。
 
 启动后屏幕显示「手机访问地址」和二维码，按 [手机连接详解](CONNECT_PHONE.md) 操作。
 
