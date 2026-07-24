@@ -2,6 +2,7 @@
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 chcp 65001 >nul
+set "PYTHONIOENCODING=utf-8"
 set "BASE=%~dp0"
 set "VENV=%BASE%.venv"
 set "KEYFILE=%BASE%.env"
@@ -90,7 +91,7 @@ if errorlevel 1 (
     exit /b 1
 )
 if "!ASRMODE!"=="whisper" (
-    echo 正在安装本地 Whisper 依赖（faster-whisper，首次运行会下载模型权重）...
+    echo 安装本地 Whisper 依赖（faster-whisper，首次下载模型）...
     "%VENV%\Scripts\python.exe" -m pip install -r "%BASE%requirements-whisper.txt"
     if errorlevel 1 (
         echo 离线依赖安装失败。请检查网络后重试，或改用云端模式。
@@ -99,7 +100,7 @@ if "!ASRMODE!"=="whisper" (
     )
 )
 if "!ASRMODE!"=="sensevoice" (
-    echo 正在安装 SenseVoice 依赖（torch/funasr/modelscope，首次下载模型）...
+    echo 安装 SenseVoice 依赖（torch/funasr，首次下载模型）...
     "%VENV%\Scripts\python.exe" -m pip install -r "%BASE%requirements-sensevoice.txt"
     if errorlevel 1 (
         echo 离线依赖安装失败（torch/funasr/modelscope）。
@@ -138,7 +139,7 @@ if not defined HAVE_KEY (
     echo.
     echo ============================================================
     echo  语音识别需要 MiMo API key。
-    echo  可免费申请：https://platform.xiaomimimo.com，注册后创建 API key。
+    echo  免费申请：https://platform.xiaomimimo.com（注册后创建 key）
     echo ============================================================
     set /p "USERKEY=请输入你的 MiMo API key（留空则跳过）："
     if not "!USERKEY!"=="" (
