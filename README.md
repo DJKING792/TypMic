@@ -88,32 +88,21 @@
 
 ### macOS
 
-1. **装 ffmpeg**（转码用，pip 装不了）：`brew install ffmpeg`（没有 Homebrew 先去 [brew.sh](https://brew.sh) 装）。
-2. **开权限**（系统设置 → 隐私与安全性）：防火墙放行 **Python**、辅助功能里给 **终端** 打勾（否则手机连不上或打不出字）。
-3. **进项目目录跑起来**：
+1. 首次使用装 ffmpeg（音频转码用，已装可跳过）：`brew install ffmpeg`（没 Homebrew 先到 [brew.sh](https://brew.sh) 装）
+2. 系统设置 → 隐私与安全性：防火墙放行 Python、辅助功能给终端打勾。
+3. 解压压缩包，右键 TypMic 文件夹，选「新建位于文件夹位置的终端窗口」，输入以下命令：
 
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-export MIMO_API_KEY=你的key    # 或在项目根目录建 .env 写 MIMO_API_KEY=你的key
-python voice_input_server.py
-```
+   ```bash
+   bash start.sh
+   ```
 
-**离线模式**（无需 API key、语音不出本机）：把上面的 `export MIMO_API_KEY` 那行去掉，末尾改跑下面几行——首次启动会自动下载识别模型。`TYPOMIC_ASR` 可选 `whisper`（faster-whisper）或 `sensevoice`（SenseVoice，自带标点 / 逆文本归一化）：
+   ![macOS 在文件夹位置打开终端](assets/mac.png)
 
-```bash
-# 选一个本地引擎安装依赖（只装对应引擎，互不牵连，whisper 不装 torch）：
-pip install -r requirements-whisper.txt      # whisper 引擎
-# pip install -r requirements-sensevoice.txt # sensevoice 引擎（含纯 CPU 版 torch）
-export TYPOMIC_ASR=whisper                   # 或 sensevoice
-python voice_input_server.py
+4. 按屏幕菜单选识别引擎、填 MiMo API key（云端模式需要，离线模式无需）。
+   启动后浏览器打开 `https://localhost:8443/desktop` 即可使用。
+   首次用 SenseVoice 会下载约 1GB 模型，请耐心等待。
 
-> **提升 Whisper 识别准确率**（默认已针对中文调优，无需额外操作）：`WHISPER_LANG` 强制语种（默认 `zh`，设 `auto` 恢复自动检测）；`WHISPER_VAD` 静音过滤（默认 `on`）；`WHISPER_PROMPT` 自定义提示词。想要更准可设 `WHISPER_MODEL=medium`（更大更慢）。
-```
-
-> 模型权重会自动下载到项目内的 `models/` 目录（如 `models/whisper-small`、`models/SenseVoiceSmall`），每个模型一个独立文件夹，不会污染系统目录；`models/`、`usage_stats.json` 等均不纳入发布包与 Git。
-
-启动后屏幕显示「手机访问地址」和二维码，按 [手机连接详解](CONNECT_PHONE.md) 操作。
+屏幕会显示手机访问地址和二维码，按 [手机连接详解](CONNECT_PHONE.md) 用手机扫码连接。
 
 ## 获取免费的小米 MiMo API Key
 
