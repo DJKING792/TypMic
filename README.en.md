@@ -99,8 +99,6 @@ The text is only ever typed into the cursor of **the PC that runs this service**
    bash start.sh
    ```
 
-   ![Open Terminal at folder on macOS](assets/mac.png)
-
 4. Pick an engine and enter the MiMo API key in the menu (needed for cloud mode; offline needs none).
    When it starts, open `https://localhost:8443/desktop` in your browser.
    First-time SenseVoice use downloads ~1 GB — please be patient.
