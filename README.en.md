@@ -27,6 +27,11 @@
   - [macOS](#macos)
   - [Connect your phone](CONNECT_PHONE.en.md)
 
+## Real usage statistics
+
+![Usage count](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/DJKING792/bc3a274ec6d49e8b16775c4a3d870ab6/raw/stats_count.json)
+![Characters typed](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/DJKING792/bc3a274ec6d49e8b16775c4a3d870ab6/raw/stats_chars.json)
+
 ## Compared with similar tools
 
 | Aspect | TypMic (this project) | Most similar tools |
@@ -86,30 +91,21 @@ The text is only ever typed into the cursor of **the PC that runs this service**
 
 ### macOS
 
-1. **Install ffmpeg** (for transcoding; pip can't install it): `brew install ffmpeg` (no Homebrew? get it at [brew.sh](https://brew.sh)).
-2. **Grant permissions** (System Settings → Privacy & Security): allow **Python** through the Firewall, and enable **Terminal** under Accessibility (else the phone can't connect or text won't type).
-3. **`cd` into the project and run it:**
+1. First-time only: install ffmpeg (for transcoding; skip if already installed): `brew install ffmpeg` (No Homebrew? Get it at [brew.sh](https://brew.sh) first.)
+2. System Settings → Privacy & Security: allow Python through the Firewall, and enable Terminal under Accessibility.
+3. Unzip the package, right-click the TypMic folder, choose "New Terminal at Folder", then enter the command below:
 
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-export MIMO_API_KEY=your_key    # or put MIMO_API_KEY=your_key in a .env at the project root
-python voice_input_server.py
-```
+   ```bash
+   bash start.sh
+   ```
 
-**Offline Mode** (no API key; audio never leaves your Mac): drop the `export MIMO_API_KEY` line above and end with these instead — the recognition model is downloaded automatically on first run. `TYPOMIC_ASR` can be `whisper` (faster-whisper) or `sensevoice` (SenseVoice, with built-in punctuation / inverse text normalization):
+   ![Open Terminal at folder on macOS](assets/mac.png)
 
-```bash
-# install one local engine (only that engine; whisper does NOT pull torch):
-pip install -r requirements-whisper.txt      # whisper engine
-# pip install -r requirements-sensevoice.txt # sensevoice engine (ships CPU-only torch)
-export TYPOMIC_ASR=whisper                   # or sensevoice
-python voice_input_server.py
+4. Pick an engine and enter the MiMo API key in the menu (needed for cloud mode; offline needs none).
+   When it starts, open `https://localhost:8443/desktop` in your browser.
+   First-time SenseVoice use downloads ~1 GB — please be patient.
 
-> **Improve Whisper accuracy** (already tuned for Chinese by default, no extra step needed): `WHISPER_LANG` forces the language (default `zh`; set `auto` to auto-detect); `WHISPER_VAD` silence filtering (default `on`); `WHISPER_PROMPT` custom prompt. For higher accuracy set `WHISPER_MODEL=medium` (larger and slower).
-```
-
-After startup the screen shows the "phone URL" and QR code — then connect your phone (see [Connect your phone](CONNECT_PHONE.en.md)).
+The screen shows the phone URL and a QR code — scan it with your phone (see [Connect your phone](CONNECT_PHONE.en.md)).
 
 ## Getting a free MiMo API key
 
