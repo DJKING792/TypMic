@@ -22,6 +22,18 @@ setenv() {
   rm -f "$tmp"
 }
 
+# 路径可能含中文等非 ASCII 字符，部分终端会显示成 ?；此时改用相对描述（纯 ASCII，永不乱码）
+safe_path_msg() {
+  local prefix="$1" path="$2" suffix="$3" rel="${4:-}"
+  local shown
+  case "$path" in
+    *[![:ascii:]]*)
+      if [ -n "$rel" ]; then shown="$rel"; else shown="本项目的 $(basename "$path")"; fi ;;
+    *) shown="$path" ;;
+  esac
+  echo "${prefix}${shown}${suffix}"
+}
+
 # —— 查找可用的 Python 3.10+（优先 python3）——
 PYTHON=""
 for c in python3 python; do
@@ -110,7 +122,7 @@ if [ "$ASRMODE" = "sensevoice" ]; then
   MS_CACHE="$BASE/models/SenseVoiceSmall"
   mkdir -p "$MS_CACHE" 2>/dev/null
   export MODELSCOPE_CACHE="$MS_CACHE"
-  echo "模型将保存到：$MS_CACHE（首次下载约 1GB，请耐心等待进度条）"
+  safe_path_msg "模型将保存到：" "$MS_CACHE" "（首次下载约 1GB，请耐心等待进度条）" "本项目的 models/SenseVoiceSmall 目录"
   echo "正在预下载 SenseVoice 模型..."
   "$VENV_PY" -c "from funasr import AutoModel; AutoModel(model='iic/SenseVoiceSmall', trust_remote_code=True); print('SenseVoice model ready')"
 fi
@@ -231,7 +243,7 @@ if [ "$CCHOICE" = "2" ]; then
     echo "正在请求管理员权限安装根证书（会弹密码框）..."
     sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$BASE/rootCA.pem"
   else
-    echo "Linux：请手动将 $BASE/rootCA.pem 导入系统/浏览器信任（或忽略浏览器警告，功能不受影响）。"
+    safe_path_msg "Linux：请手动将 " "$BASE/rootCA.pem" " 导入系统/浏览器信任（或忽略浏览器警告，功能不受影响）。" "本项目的 rootCA.pem"
   fi
 fi
 
