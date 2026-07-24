@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 chcp 65001 >nul
-set "PYTHONIOENCODING=utf-8"
+set "PYTHONIOENCODING=gbk"
 set "BASE=%~dp0"
 set "VENV=%BASE%.venv"
 set "KEYFILE=%BASE%.env"
@@ -56,22 +56,19 @@ echo       纯离线，中文准，自带标点，CPU 可跑
 echo  当前默认：!ASRMODE!
 echo ============================================================
 set /p "CHOICE=输入 1 / 2 / 3（直接回车沿用当前默认）："
-if "!CHOICE!"=="2" (
+if "!CHOICE!"=="1" (
+    set "ASRMODE=cloud"
+    call :setenv TYPOMIC_ASR cloud
+    echo 已选择云端模式（MiMo，已写入 .env，下次自动沿用）。
+) else if "!CHOICE!"=="2" (
     set "ASRMODE=whisper"
     set "TYPOMIC_ASR=whisper"
-    REM 写入 .env 以便下次自动沿用（已存在则不再重复写入）
-    findstr /b /i "TYPOMIC_ASR" "%KEYFILE%" >nul 2>&1
-    if errorlevel 1 (
-        >> "%KEYFILE%" echo TYPOMIC_ASR=whisper
-    )
+    call :setenv TYPOMIC_ASR whisper
     echo 已选择离线模式（faster-whisper，已写入 .env，下次自动沿用）。
 ) else if "!CHOICE!"=="3" (
     set "ASRMODE=sensevoice"
     set "TYPOMIC_ASR=sensevoice"
-    findstr /b /i "TYPOMIC_ASR" "%KEYFILE%" >nul 2>&1
-    if errorlevel 1 (
-        >> "%KEYFILE%" echo TYPOMIC_ASR=sensevoice
-    )
+    call :setenv TYPOMIC_ASR sensevoice
     echo 已选择离线模式（SenseVoice，已写入 .env，下次自动沿用）。
 ) else (
     if not "!ASRMODE!"=="cloud" (
