@@ -30,7 +30,12 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import usage_stats  # 真实用量统计（持久化累计到 usage_stats.json）
+# 真实用量统计：完全在本地（写入 usage_stats.json），不上传任何服务器；
+# 推 Gist badge 是可选的手动动作（update_usage_badge.py）。该模块随发布包分发。
+try:
+    import usage_stats
+except ImportError:
+    usage_stats = None
 
 try:
     import aiohttp
@@ -244,7 +249,6 @@ CONNECTION_LOG: list = []
 # 订阅 SSE 的客户端队列集合；每个桌面端页面一个队列。
 PIPELINE_CLIENTS: set = set()
 # 今日统计：次数 / 字数 / 识别耗时累计 / 润色耗时累计（跨午夜自动归零）
-# 统计已迁移到 usage_stats 模块（持久化累计到 usage_stats.json）
 
 
 def broadcast(event: dict):
@@ -260,12 +264,28 @@ def broadcast(event: dict):
 
 
 def record_stats(chars: int, asr_ms: float = 0.0, polish_ms: float = 0.0):
-    """记录一次成功识别的真实用量（持久化累计到 usage_stats.json）。"""
+    """记录一次成功识别的真实用量（持久化累计到 usage_stats.json）。
+
+    usage_stats 模块不可用时（极少数缺模块场景）自动跳过，不影响主链路。
+    """
+    if usage_stats is None:
+        return
     usage_stats.record_usage(chars, asr_ms, polish_ms)
 
 
 def stats_snapshot():
-    """返回累计用量快照，给前端实时展示（含当日与累计）。"""
+    """返回累计用量快照，给前端实时展示（含当日与累计）。
+
+    统计完全在本地：每次成功识别后 record_stats() 写入 usage_stats.json，
+    不上传任何服务器；推 Gist（badge）是各自可选的手动动作。
+    """
+    if usage_stats is None:
+        return {
+            "today_count": 0, "today_chars": 0,
+            "today_asr_ms": 0, "today_polish_ms": 0,
+            "total_count": 0, "total_chars": 0,
+            "first_date": "", "last_date": "", "days": 0,
+        }
     return usage_stats.snapshot()
 
 
