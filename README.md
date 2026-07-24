@@ -102,7 +102,7 @@
    启动后浏览器打开 `https://localhost:8443/desktop` 即可使用。
    首次用 SenseVoice 会下载约 1GB 模型，请耐心等待。
 
-屏幕会显示手机访问地址和二维码，按 [手机连接详解](CONNECT_PHONE.md) 用手机扫码连接。
+5. 屏幕会显示手机访问地址和二维码，按 [手机连接详解](CONNECT_PHONE.md) 用手机扫码连接。
 
 ## 获取免费的小米 MiMo API Key
 
