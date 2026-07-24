@@ -103,7 +103,7 @@ The text is only ever typed into the cursor of **the PC that runs this service**
    When it starts, open `https://localhost:8443/desktop` in your browser.
    First-time SenseVoice use downloads ~1 GB — please be patient.
 
-The screen shows the phone URL and a QR code — scan it with your phone (see [Connect your phone](CONNECT_PHONE.en.md)).
+5. The screen shows the phone URL and a QR code — scan it with your phone (see [Connect your phone](CONNECT_PHONE.en.md)).
 
 ## Getting a free MiMo API key
 
