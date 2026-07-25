@@ -31,7 +31,7 @@
 
 ## 作者真实用量统计
 
-![使用次数](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/DJKING792/d0ef5bb70b36d07cf5fc779adc2ecc1c/stats_count.json)
+![使用次数](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/DJKING792/d0ef5bb70b36d07cf5fc779adc2ecc1c/raw/stats_count.json)
 ![已输入字数](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/DJKING792/d0ef5bb70b36d07cf5fc779adc2ecc1c/raw/stats_chars.json)
 
 ## 与同类工具对比
