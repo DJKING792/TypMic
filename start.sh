@@ -23,14 +23,20 @@ setenv() {
 }
 
 # 路径可能含中文等非 ASCII 字符，部分终端会显示成 ?；此时改用相对描述（纯 ASCII，永不乱码）
+# 注意：不能用 [![:ascii:]] 字符类——它是 GNU 扩展，macOS 自带的老版 bash 3.2 不支持，会直接崩溃。
+# 改为按字节判断：UTF-8 的非 ASCII 字节都在 0x80–0xFF，十六进制首位是 8/9/a/b/c/d/e/f。
+# 用 od 在 C locale 下逐字节检查，兼容任何 bash 版本、locale 与平台。
+has_nonascii() {
+  LANG=C LC_ALL=C printf '%s' "$1" | od -An -tx1 2>/dev/null | grep -E -q "[89a-f][0-9a-f]"
+}
 safe_path_msg() {
   local prefix="$1" path="$2" suffix="$3" rel="${4:-}"
   local shown
-  case "$path" in
-    *[![:ascii:]]*)
-      if [ -n "$rel" ]; then shown="$rel"; else shown="本项目的 $(basename "$path")"; fi ;;
-    *) shown="$path" ;;
-  esac
+  if has_nonascii "$path"; then
+    if [ -n "$rel" ]; then shown="$rel"; else shown="本项目的 $(basename "$path")"; fi
+  else
+    shown="$path"
+  fi
   echo "${prefix}${shown}${suffix}"
 }
 
@@ -87,7 +93,15 @@ read -r -p "输入 1 / 2 / 3（直接回车沿用当前默认）：" CHOICE
 case "$CHOICE" in
   1) ASRMODE=cloud;    setenv TYPOMIC_ASR cloud;    echo "已选择云端模式（MiMo，已写入 .env，下次自动沿用）。" ;;
   2) ASRMODE=whisper;  setenv TYPOMIC_ASR whisper;  echo "已选择离线模式（faster-whisper，已写入 .env，下次自动沿用）。" ;;
-  3) ASRMODE=sensevoice; setenv TYPOMIC_ASR sensevoice; echo "已选择离线模式（SenseVoice，已写入 .env，下次自动沿用）。" ;;
+  3) ASRMODE=sensevoice; setenv TYPOMIC_ASR sensevoice
+     # 追问设备与语种（有 N 卡可选 cuda 提速；默认 zh 准确率最高）
+     read -r -p "SenseVoice 设备 [1]cpu(默认) [2]cuda:0(有N卡): " SVDEVCH
+     SVDEV=cpu; [ "$SVDEVCH" = "2" ] && SVDEV=cuda:0
+     setenv SENSEVOICE_DEVICE "$SVDEV"
+     read -r -p "SenseVoice 语种 [1]zh(默认) [2]auto(中英混说) [3]en: " SVLANGCH
+     SVLANG=zh; [ "$SVLANGCH" = "2" ] && SVLANG=auto; [ "$SVLANGCH" = "3" ] && SVLANG=en
+     setenv SENSEVOICE_LANG "$SVLANG"
+     echo "已选择离线模式（SenseVoice，设备=$SVDEV，语种=$SVLANG，已写入 .env）。" ;;
   *)
      if [ "$ASRMODE" != "cloud" ]; then
        setenv TYPOMIC_ASR "$ASRMODE"
