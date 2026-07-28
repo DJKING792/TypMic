@@ -1,0 +1,1 @@
+OS="$(uname 2>/dev/null || : )"
