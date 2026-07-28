@@ -5,6 +5,19 @@
 
 set -o pipefail
 
+# —— 平台检测：本脚本只供 macOS / Linux，Windows 请用 start.bat ——
+OS="$(uname 2>/dev/null)"
+if [ -z "$OS" ]; then
+  OS="unknown"
+fi
+case "$OS" in
+  MINGW*|MSYS*|CYGWIN*)
+    echo "错误：你当前在 Windows 环境（$OS）。"
+    echo "Windows 用户请运行 start.bat，而不是 start.sh。"
+    exit 1
+    ;;
+esac
+
 BASE="$(cd "$(dirname "$0")" && pwd)"
 VENV="$BASE/.venv"
 KEYFILE="$BASE/.env"
@@ -112,12 +125,44 @@ case "$CHOICE" in
      ;;
 esac
 
-# —— 创建虚拟环境（若不存在）——
-if [ ! -x "$VENV/bin/python" ]; then
-  echo "[1/3] 正在创建虚拟环境..."
-  "$PYTHON" -m venv "$VENV" || { echo "虚拟环境创建失败。"; exit 1; }
+# —— 检查 Python 是否支持创建虚拟环境 ——
+if ! "$PYTHON" -m venv --help >/dev/null 2>&1; then
+  echo
+  echo "错误：当前 Python（$PYTHON）不支持创建虚拟环境。"
+  echo "常见原因及解决："
+  echo "  1. macOS 自带的 /usr/bin/python3 缺少 ensurepip，请安装完整版 Python 3.10+："
+  echo "     brew install python@3.12"
+  echo "     装好后重新打开终端再运行 bash start.sh"
+  echo "  2. Linux 的 python3-venv 未安装："
+  echo "     sudo apt install python3-venv    # Debian / Ubuntu"
+  echo "     sudo dnf install python3-virtualenv  # Fedora"
+  exit 1
 fi
-VENV_PY="$VENV/bin/python"
+
+# —— 创建虚拟环境（若不存在）——
+if [ ! -x "$VENV/bin/python" ] && [ ! -x "$VENV/Scripts/python.exe" ]; then
+  echo "[1/3] 正在创建虚拟环境..."
+  if ! "$PYTHON" -m venv "$VENV" 2>&1; then
+    echo
+    echo "虚拟环境创建失败。请检查："
+    echo "  - Python 路径：$PYTHON"
+    echo "  - Python 版本：$("$PYTHON" --version 2>&1 || true)"
+    echo "  - 目标路径：$VENV"
+    echo "可尝试删除 $VENV 后重试，或改用 Homebrew / python.org 安装的 Python。"
+    exit 1
+  fi
+fi
+
+# 兼容 Linux/macOS 的 .venv/bin/python，以及 Windows Git Bash 的 .venv/Scripts/python.exe
+if [ -x "$VENV/bin/python" ]; then
+  VENV_PY="$VENV/bin/python"
+elif [ -x "$VENV/Scripts/python.exe" ]; then
+  VENV_PY="$VENV/Scripts/python.exe"
+else
+  echo "错误：虚拟环境已创建，但找不到其中的 Python 解释器。"
+  echo "请删除 $VENV 后重试。"
+  exit 1
+fi
 
 # —— 安装依赖（轻量，已安装的会跳过）——
 echo "[2/3] 正在安装依赖（无需下载模型，很快）..."
