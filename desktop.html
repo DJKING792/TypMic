@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TypMic · 扫码打开</title>
+<title data-i18n="title">TypMic · 扫码打开</title>
 <style>
   :root { --bg:#0f1220; --card:#1a1f33; --acc:#4f8cff; --ok:#37d39b; --warn:#ffb84d; --err:#ff6b6b; --txt:#e8ecf5; --sub:#8b93a7; }
   * { box-sizing:border-box; }
@@ -127,18 +127,144 @@
   details.help li b { color:var(--txt); }
   details.help code { background:rgba(255,255,255,.08); padding:1px 6px; border-radius:5px; color:var(--txt);
     font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+
+  /* 语言切换按钮 */
+  .lang-toggle {
+    position: fixed; top: 12px; right: 12px; z-index: 60;
+    padding: 6px 12px; border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(26,31,51,0.85); color: var(--txt);
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    user-select: none;
+  }
+  .lang-toggle:active { transform: scale(0.95); }
 </style>
+<script>
+  // ---- i18n：中英文界面切换（页面内点击 🌐 按钮随时切换，默认中文）----
+  var I18N = {
+    zh: {
+      running: '运行中 ✔', ok: '可用', missingWarn: '缺失 ⚠', generated: '已生成', missing: '缺失',
+      mimoName: '云端 MiMo ASR', whisperName: '本地 Whisper ASR', sensevoiceName: '本地 SenseVoice ASR',
+      noKey: '未配置 MIMO_API_KEY ✗', onOk: '已开启 ✔', onWarn: '开启但未就绪 ⚠', off: '关闭',
+      glossaryNone: '无（可建 glossary.txt）', dropNone: '无（可在下方添加）',
+      srvErr: '无法连接服务端', statusFail: '获取状态失败。请确认服务正在运行（双击 start.bat，窗口里有“服务已启动”）。',
+      pipeAsr: '识别中…（语音已收到，正在转文字）', pipePolish: '润色中…（去口语 / 加标点 / 分段）',
+      pipeDone: '已粘贴 ✔', pipePolishMs: '润色', pipeErr: '出错：', unknown: '未知错误',
+      copied: '已复制 ✔', restarting: '🔄 重启中…',
+      restartConfirm: '确定重启服务器吗？\n\n约几秒后自动恢复。当前运行时设置（如润色模式）会重置为 .env / 启动菜单的默认值；「自动丢弃文本」等已保存规则不受影响。',
+      pmCurrentPrefix: '当前：',
+      none: '无', rulesLoaded: '{n} 条规则已加载', notConfigured: '未配置',
+      noDropRules: '暂无丢弃规则。添加后，识别文本里出现这些短语会被自动删除。',
+      refreshCount: '已更新 {n} 次', connFail: '连接失败', asrMs: '识别'
+    },
+    en: {
+      title: 'TypMic · Scan to open',
+      sub: 'Scan the QR code with your phone camera/WeChat to open the mic page',
+      copy: 'Copy phone URL',
+      steps: 'After opening the phone page, hold "Hold to Talk", speak, and release to recognize &amp; paste at the PC cursor.<br><span style="color:var(--sub)">First-time connection issues? Expand "Cannot connect? Troubleshoot" below.</span>',
+      pmTitle: 'AI Polish',
+      pmCurrent: 'Current: …',
+      pmOff: 'Off', pmFull: 'General', pmLogic: 'Logic', pmNovel: 'Novel', pmBusiness: 'Business', pmAdmin: 'Admin',
+      pmTip: 'Changes apply instantly, <b>no restart needed</b>. "Logic" suits rambling speech; "Novel" keeps a literary, colloquial feel; "Business / Admin" are formal &amp; written. Not sure? Use "General".',
+      dropTitle: 'Auto-drop text',
+      dropTip: 'Add filler words / verbal tics / stock phrases you often hear here. Any time they appear in recognized text, <b>they are deleted automatically</b> — a deterministic rule that <b>always works, independent of AI polish</b>. To drop a whole sentence, paste the full sentence.',
+      dropPh: 'Paste a phrase to drop, press Enter or tap Add…',
+      dropAdd: 'Add',
+      helpSum: 'Cannot connect? Troubleshoot',
+      help1: '① <b>Same network</b>: phone and PC must be on the same Wi-Fi, or the PC uses the phone hotspot.',
+      help2: '② <b>Android</b>: first open shows a cert warning; tap "Advanced → Proceed" to continue.',
+      help3: '③ <b>iPhone</b>: iOS has no "Proceed"; send the PC project root <code>rootCA.pem</code> to the iPhone via AirDrop / Mail / WeChat Files, install it and enable full trust (Settings › General › About › Certificate Trust Settings), then open the page.',
+      help4: '④ <b>Connection refused / ERR_CONNECTION_REFUSED?</b> Usually Windows Firewall. Right-click <code>allow_firewall.bat</code> in the project → Run as administrator (once) to allow port 8443.',
+      pipeTitle: 'Live recognition pipeline',
+      nAsr: 'Recognizing', nPolish: 'Polishing', nDone: 'Pasted',
+      pipeIdle: 'Idle, waiting for phone…',
+      previewHint: '(latest result shows here)',
+      stCount: 'Today', stChars: 'Today chars', stAsr: 'Avg ASR(ms)', stPolish: 'Avg polish(ms)',
+      stTotalCount: 'Total', stTotalChars: 'Total chars',
+      connTitle: 'Live connection',
+      keyBanner: '⚠ <b>MIMO_API_KEY not set</b>, speech recognition will not work.<br>Set the environment variable <code>MIMO_API_KEY</code>, or write a line in the project root <code>.env</code>:<code>MIMO_API_KEY=your_key</code>, then restart the server.<br>Get one at: <a href="https://platform.xiaomimimo.com" target="_blank">https://platform.xiaomimimo.com</a>',
+      gkRunning: 'Service', gkIp: 'LAN IP', gkFfmpeg: 'ffmpeg', gkCert: 'Cert', gkMode: 'ASR mode',
+      gkPolish: 'AI polish', gkPolishErr: 'Polish err', gkGlossary: 'Glossary', gkDrop: 'Auto-drop', gkUptime: 'Uptime',
+      restartBtn: '🔄 Restart server (apply code changes)',
+      restartNote: 'After editing <b>Python code</b> (text_polish.py / voice_input_server.py) or <b>.env</b>, click here to restart in one click — no manual kill. Editing <b>desktop.html</b> or "Auto-drop text" only needs a refresh / applies instantly.',
+      connH: 'Recent connections (appear once a phone opens the page)',
+      connEmpty: 'No connections yet. They will appear once a phone opens the page.',
+      connTip: 'To confirm the phone actually reached the PC: check "Recent connections" — a phone Wi-Fi IP accessing <b>/</b> or <b>/api/ping</b> means it arrived; if always empty, it is likely <b>not on the same Wi-Fi</b> or <b>firewall blocked</b>.',
+      thTime: 'Time', thIp: 'Client IP', thReq: 'Request', thStatus: 'Status',
+      running: 'Running ✔', ok: 'Available', missingWarn: 'Missing ⚠', generated: 'Generated', missing: 'Missing',
+      mimoName: 'Cloud MiMo ASR', whisperName: 'Local Whisper ASR', sensevoiceName: 'Local SenseVoice ASR',
+      noKey: 'MIMO_API_KEY not set ✗', onOk: 'On ✔', onWarn: 'On but not ready ⚠', off: 'Off',
+      glossaryNone: 'None (create glossary.txt)', dropNone: 'None (add below)',
+      srvErr: 'Cannot reach server', statusFail: 'Failed to get status. Make sure the server is running (double-click start.bat; the window should say "service started").',
+      pipeAsr: 'Recognizing… (audio received, transcribing)', pipePolish: 'Polishing… (remove filler / add punctuation / split)',
+      pipeDone: 'Pasted ✔', pipePolishMs: 'Polish', pipeErr: 'Error: ', unknown: 'unknown error',
+      copied: 'Copied ✔', restarting: '🔄 Restarting…',
+      restartConfirm: 'Restart the server?\n\nIt will recover in a few seconds. Current runtime settings (e.g. polish mode) reset to .env / startup-menu defaults; saved rules like "Auto-drop text" are kept.',
+      pmCurrentPrefix: 'Current: ',
+      none: 'None', rulesLoaded: '{n} rules loaded', notConfigured: 'Not configured',
+      noDropRules: 'No drop rules yet. After adding, these phrases will be auto-deleted from recognized text.',
+      refreshCount: 'Updated {n} times', connFail: 'Connection failed', asrMs: 'ASR'
+    }
+  };
+  var SERVER_LANG = 'zh';
+  var _LS = 'typmic_lang';
+  function _getLang(){ var s=null; try{ s=localStorage.getItem(_LS); }catch(e){} return s || SERVER_LANG || 'zh'; }
+  function t(k){
+    var l=_getLang();
+    if(I18N[l] && (k in I18N[l])) return I18N[l][k];
+    if(I18N.zh && (k in I18N.zh)) return I18N.zh[k];
+    if(I18N.en && (k in I18N.en)) return I18N.en[k];
+    return k;
+  }
+  function _applyStatic(){
+    var l=_getLang();
+    document.documentElement.lang = (l==='en')?'en':'zh-CN';
+    var nodes=document.querySelectorAll('[data-i18n]');
+    for(var i=0;i<nodes.length;i++){
+      var el=nodes[i];
+      if(!el.getAttribute('data-zh')) el.setAttribute('data-zh', el.innerHTML);
+      var key=el.getAttribute('data-i18n');
+      var en=I18N.en?I18N.en[key]:null;
+      el.innerHTML = (l==='en' && en!=null)?en:el.getAttribute('data-zh');
+    }
+    var phs=document.querySelectorAll('[data-i18n-ph]');
+    for(var j=0;j<phs.length;j++){
+      var pe=phs[j];
+      var pk=pe.getAttribute('data-i18n-ph');
+      if(!pe.getAttribute('data-ph-zh')) pe.setAttribute('data-ph-zh', pe.placeholder);
+      pe.placeholder = (l==='en' && I18N.en && I18N.en[pk]!=null)? I18N.en[pk] : pe.getAttribute('data-ph-zh');
+    }
+  }
+  function _updateToggle(){
+    var b=document.getElementById('lang-toggle');
+    if(b) b.textContent = (_getLang()==='en')?'🌐 中文':'🌐 EN';
+  }
+  function _onLangChange(l){}
+  function _setLang(l){ try{ localStorage.setItem(_LS,l); }catch(e){} _applyStatic(); _updateToggle(); _onLangChange(l); }
+  function _toggleLang(){ _setLang(_getLang()==='en'?'zh':'en'); }
+  document.addEventListener('DOMContentLoaded', function(){ _applyStatic(); _updateToggle(); });
+  // 润色模式英文标签（服务端只回中文 label，英文模式用此映射覆盖）
+  var POLISH_LABELS_EN = { off:'Off', full:'General', logic:'Logic', novel:'Novel', business:'Business', admin:'Admin' };
+  function polishLabel(mode, zhLabel){
+    if(_getLang()==='en' && POLISH_LABELS_EN[mode]) return POLISH_LABELS_EN[mode];
+    return zhLabel;
+  }
+</script>
 </head>
 <body>
+<button id="lang-toggle" class="lang-toggle" onclick="_toggleLang()">🌐 EN</button>
+
 <div class="qr-row">
 <div class="card card-qr center">
-  <h1>TypMic · 扫码打开</h1>
-  <div class="sub">用手机相机/微信扫下面的二维码，直接打开录音页</div>
+  <h1 data-i18n="title">TypMic · 扫码打开</h1>
+  <div class="sub" data-i18n="sub">用手机相机/微信扫下面的二维码，直接打开录音页</div>
   <div class="qr"><img src="/desktop/qr.png" alt="QR"></div>
   <div class="url" id="url">https://…</div>
-  <button class="copy" id="copy">复制手机访问地址</button>
+  <button class="copy" id="copy" data-i18n="copy">复制手机访问地址</button>
 
-  <div class="steps">
+  <div class="steps" data-i18n="steps">
     扫码打开手机页面后，按住「按住说话」说话，松手即识别并粘贴到电脑光标处。<br>
     <span style="color:var(--sub)">首次连接遇到问题？展开下方「手机连不上？点这里排查」。</span>
   </div>
@@ -147,42 +273,42 @@
 <div class="cards-row side-cards">
 
 <div class="card">
-  <div class="status-title"><span class="dot" id="pm-dot"></span><span>AI 润色模式</span></div>
-  <div class="pm-current" id="pm-current">当前：…</div>
+  <div class="status-title"><span class="dot" id="pm-dot"></span><span data-i18n="pmTitle">AI 润色模式</span></div>
+  <div class="pm-current" id="pm-current" data-i18n="pmCurrent">当前：…</div>
   <div class="pmodes" id="pmodes">
-    <button class="pmode" data-mode="off">关闭</button>
-    <button class="pmode" data-mode="full">通用润色</button>
-    <button class="pmode" data-mode="logic">理顺逻辑</button>
-    <button class="pmode" data-mode="novel">小说创作</button>
-    <button class="pmode" data-mode="business">公司文案</button>
-    <button class="pmode" data-mode="admin">行政公文</button>
+    <button class="pmode" data-mode="off" data-i18n="pmOff">关闭</button>
+    <button class="pmode" data-mode="full" data-i18n="pmFull">通用润色</button>
+    <button class="pmode" data-mode="logic" data-i18n="pmLogic">理顺逻辑</button>
+    <button class="pmode" data-mode="novel" data-i18n="pmNovel">小说创作</button>
+    <button class="pmode" data-mode="business" data-i18n="pmBusiness">公司文案</button>
+    <button class="pmode" data-mode="admin" data-i18n="pmAdmin">行政公文</button>
   </div>
-  <div class="tip" style="margin-top:14px;">
+  <div class="tip" style="margin-top:14px;" data-i18n="pmTip">
     切换即时生效，<b>无需重启</b>。选「理顺逻辑」适合说话散乱的人；「小说创作」保留文学口语感；
     「公司文案 / 行政公文」偏正式书面。不知道选哪个就用「通用润色」。
   </div>
 </div>
 
 <div class="card">
-  <div class="status-title"><span class="dot" id="drop-dot"></span><span>自动丢弃文本</span>
+  <div class="status-title"><span class="dot" id="drop-dot"></span><span data-i18n="dropTitle">自动丢弃文本</span>
     <span id="drop-count" style="margin-left:auto;color:var(--sub);font-size:12px;"></span></div>
-  <div class="tip" style="margin:0 0 12px;">
+  <div class="tip" style="margin:0 0 12px;" data-i18n="dropTip">
     在这里添加你常听到的<b>废话 / 口头禅 / 固定套话</b>。下次识别到的文本里<b>只要出现这些短语，就会被直接删掉</b>——这是确定性规则，<b>不依赖 AI 润色、必定生效</b>。想整句丢弃，就把整句话粘进来。
   </div>
   <div class="drop-add">
-    <input id="drop-input" type="text" placeholder="粘贴要丢弃的短语，回车或点「添加」…" />
-    <button id="drop-add">添加</button>
+    <input id="drop-input" type="text" data-i18n-ph="dropPh" placeholder="粘贴要丢弃的短语，回车或点「添加」…" />
+    <button id="drop-add" data-i18n="dropAdd">添加</button>
   </div>
   <div id="drop-list" class="drop-list"></div>
 </div>
 
 <details class="help">
-  <summary>手机连不上？点这里排查</summary>
+  <summary data-i18n="helpSum">手机连不上？点这里排查</summary>
   <ul>
-    <li>① <b>同一网络</b>：手机和电脑必须在同一个 WiFi，或电脑连手机热点。</li>
-    <li>② <b>安卓</b>：首次打开提示证书风险，点「高级 → 继续访问」即可。</li>
-    <li>③ <b>iPhone</b>：iOS 无「继续访问」，须把电脑项目根目录下的 <code>rootCA.pem</code> 用 AirDrop / 邮件 / 微信文件传到 iPhone 安装并开启完全信任（设置 › 通用 › 关于本机 › 证书信任设置），再打开页面。</li>
-    <li>④ <b>拒绝连接 / ERR_CONNECTION_REFUSED？</b> 多为 Windows 防火墙拦截。右键项目里的 <code>allow_firewall.bat</code> → 以管理员身份运行（只需一次）即可放行 8443。</li>
+    <li data-i18n="help1">① <b>同一网络</b>：手机和电脑必须在同一个 WiFi，或电脑连手机热点。</li>
+    <li data-i18n="help2">② <b>安卓</b>：首次打开提示证书风险，点「高级 → 继续访问」即可。</li>
+    <li data-i18n="help3">③ <b>iPhone</b>：iOS 无「继续访问」，须把电脑项目根目录下的 <code>rootCA.pem</code> 用 AirDrop / 邮件 / 微信文件传到 iPhone 安装并开启完全信任（设置 › 通用 › 关于本机 › 证书信任设置），再打开页面。</li>
+    <li data-i18n="help4">④ <b>拒绝连接 / ERR_CONNECTION_REFUSED？</b> 多为 Windows 防火墙拦截。右键项目里的 <code>allow_firewall.bat</code> → 以管理员身份运行（只需一次）即可放行 8443。</li>
   </ul>
 </details>
 
@@ -192,58 +318,58 @@
 <div class="cards-row">
 
 <div class="card">
-  <div class="status-title"><span class="dot ok" id="pipe-dot"></span><span>实时识别流水线</span></div>
+  <div class="status-title"><span class="dot ok" id="pipe-dot"></span><span data-i18n="pipeTitle">实时识别流水线</span></div>
   <div class="pipe">
-    <div class="node" id="n-asr">识别中</div>
+    <div class="node" id="n-asr" data-i18n="nAsr">识别中</div>
     <span class="arrow">→</span>
-    <div class="node" id="n-polish">润色中</div>
+    <div class="node" id="n-polish" data-i18n="nPolish">润色中</div>
     <span class="arrow">→</span>
-    <div class="node" id="n-done">已粘贴</div>
+    <div class="node" id="n-done" data-i18n="nDone">已粘贴</div>
   </div>
-  <div class="pipe-sub" id="pipe-sub">空闲，等待手机说话…</div>
-  <div class="preview" id="preview">（最近一次识别结果会显示在这里）</div>
+  <div class="pipe-sub" id="pipe-sub" data-i18n="pipeIdle">空闲，等待手机说话…</div>
+  <div class="preview" id="preview" data-i18n="previewHint">（最近一次识别结果会显示在这里）</div>
   <div class="stats">
-    <div class="stat"><div class="n" id="st-count">0</div><div class="l">今日次数</div></div>
-    <div class="stat"><div class="n" id="st-chars">0</div><div class="l">今日字数</div></div>
-    <div class="stat"><div class="n" id="st-asr">0</div><div class="l">平均识别(ms)</div></div>
-    <div class="stat"><div class="n" id="st-polish">0</div><div class="l">平均润色(ms)</div></div>
-    <div class="stat"><div class="n" id="st-total-count">0</div><div class="l">累计次数</div></div>
-    <div class="stat"><div class="n" id="st-total-chars">0</div><div class="l">累计字数</div></div>
+    <div class="stat"><div class="n" id="st-count">0</div><div class="l" data-i18n="stCount">今日次数</div></div>
+    <div class="stat"><div class="n" id="st-chars">0</div><div class="l" data-i18n="stChars">今日字数</div></div>
+    <div class="stat"><div class="n" id="st-asr">0</div><div class="l" data-i18n="stAsr">平均识别(ms)</div></div>
+    <div class="stat"><div class="n" id="st-polish">0</div><div class="l" data-i18n="stPolish">平均润色(ms)</div></div>
+    <div class="stat"><div class="n" id="st-total-count">0</div><div class="l" data-i18n="stTotalCount">累计次数</div></div>
+    <div class="stat"><div class="n" id="st-total-chars">0</div><div class="l" data-i18n="stTotalChars">累计字数</div></div>
   </div>
 </div>
 
 <div class="card">
-  <div class="status-title"><span class="dot" id="dot"></span><span>实时连接状态</span>
+  <div class="status-title"><span class="dot" id="dot"></span><span data-i18n="connTitle">实时连接状态</span>
     <span id="refresh" style="margin-left:auto;color:var(--sub);font-size:12px;"></span></div>
-  <div class="banner err" id="key-banner" style="display:none;">
+  <div class="banner err" id="key-banner" style="display:none;" data-i18n="keyBanner">
     ⚠ <b>MIMO_API_KEY 未配置</b>，语音识别将无法工作。<br>
     请设置环境变量 <code>MIMO_API_KEY</code>，或在项目根目录 <code>.env</code> 写入一行
     <code>MIMO_API_KEY=你的key</code>，然后重启服务。<br>
     申请地址：<a href="https://platform.xiaomimimo.com" target="_blank">https://platform.xiaomimimo.com</a>
   </div>
   <div class="grid">
-    <div class="k">服务状态</div><div class="v" id="s-running">…</div>
-    <div class="k">局域网 IP</div><div class="v" id="s-ip">…</div>
-    <div class="k">ffmpeg</div><div class="v" id="s-ffmpeg">…</div>
-    <div class="k">证书</div><div class="v" id="s-cert">…</div>
-    <div class="k">识别模式</div><div class="v" id="s-model">…</div>
-    <div class="k">AI 润色</div><div class="v" id="s-polish">…</div>
-    <div class="k">润色错误</div><div class="v" id="s-polish-err">—</div>
-    <div class="k">术语表</div><div class="v" id="s-glossary">…</div>
-    <div class="k">自动丢弃</div><div class="v" id="s-drop">…</div>
-    <div class="k">运行时长</div><div class="v" id="s-uptime">…</div>
+    <div class="k" data-i18n="gkRunning">服务状态</div><div class="v" id="s-running">…</div>
+    <div class="k" data-i18n="gkIp">局域网 IP</div><div class="v" id="s-ip">…</div>
+    <div class="k" data-i18n="gkFfmpeg">ffmpeg</div><div class="v" id="s-ffmpeg">…</div>
+    <div class="k" data-i18n="gkCert">证书</div><div class="v" id="s-cert">…</div>
+    <div class="k" data-i18n="gkMode">识别模式</div><div class="v" id="s-model">…</div>
+    <div class="k" data-i18n="gkPolish">AI 润色</div><div class="v" id="s-polish">…</div>
+    <div class="k" data-i18n="gkPolishErr">润色错误</div><div class="v" id="s-polish-err">—</div>
+    <div class="k" data-i18n="gkGlossary">术语表</div><div class="v" id="s-glossary">…</div>
+    <div class="k" data-i18n="gkDrop">自动丢弃</div><div class="v" id="s-drop">…</div>
+    <div class="k" data-i18n="gkUptime">运行时长</div><div class="v" id="s-uptime">…</div>
   </div>
 
-  <button class="btn-restart" id="btn-restart">🔄 重启服务器（让代码改动生效）</button>
-  <div class="restart-note">
+  <button class="btn-restart" id="btn-restart" data-i18n="restartBtn">🔄 重启服务器（让代码改动生效）</button>
+  <div class="restart-note" data-i18n="restartNote">
     改 <b>Python 代码</b>（text_polish.py / voice_input_server.py）或 <b>.env</b> 后，
     点这里一键重启，免手动 kill。改 <b>desktop.html</b> 或「自动丢弃文本」只需刷新 / 即时生效。
   </div>
 
-  <div class="conn-h"><span>最近连接（手机连上会显示在这里）</span></div>
-  <div id="conn-wrap"><div class="empty">暂无连接记录。手机打开页面后会出现在这里。</div></div>
+  <div class="conn-h"><span data-i18n="connH">最近连接（手机连上会显示在这里）</span></div>
+  <div id="conn-wrap"><div class="empty" data-i18n="connEmpty">暂无连接记录。手机打开页面后会出现在这里。</div></div>
 
-  <div class="tip">
+  <div class="tip" data-i18n="connTip">
     想确认手机到底有没有连到电脑？看“最近连接”：出现手机 WiFi 的 IP + 访问了 <b>/</b> 或 <b>/api/ping</b>，
     说明手机已到达服务端；若一直空白，多半是<b>不在同一 WiFi</b> 或 <b>防火墙拦截</b>。
   </div>
@@ -254,50 +380,51 @@
   function fmtUptime(s) {
     s = Math.max(0, s | 0);
     var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
-    return (h ? h + "小时" : "") + (m ? m + "分" : "") + ss + "秒";
+    var u = (_getLang() === "en") ? { h: "h", m: "m", s: "s" } : { h: "小时", m: "分", s: "秒" };
+    return (h ? h + u.h : "") + (m ? m + u.m : "") + ss + u.s;
   }
   function tag(text, cls) { return '<span class="tag ' + cls + '">' + text + '</span>'; }
 
   function renderStatus(d) {
     var dot = document.getElementById("dot");
     dot.className = "dot ok";
-    document.getElementById("s-running").innerHTML = tag("运行中 ✔", "ok");
+    document.getElementById("s-running").innerHTML = tag(t("running"), "ok");
     document.getElementById("s-ip").textContent = d.lan_ip + " : " + d.port;
-    document.getElementById("s-ffmpeg").innerHTML = d.ffmpeg_ok ? tag("可用", "ok") : tag("缺失 ⚠", "warn");
-    document.getElementById("s-cert").innerHTML = d.cert_ok ? tag("已生成", "ok") : tag("缺失", "err");
+    document.getElementById("s-ffmpeg").innerHTML = d.ffmpeg_ok ? tag(t("ok"), "ok") : tag(t("missingWarn"), "warn");
+    document.getElementById("s-cert").innerHTML = d.cert_ok ? tag(t("generated"), "ok") : tag(t("missing"), "err");
     // 识别模式：以服务端实际 asr_mode 为准（云端 MiMo / 本地 Whisper / 本地 SenseVoice）
     var modelInfo = ({
-      mimo: { name: "云端 MiMo ASR", needKey: true },
-      whisper: { name: "本地 Whisper ASR", needKey: false },
-      sensevoice: { name: "本地 SenseVoice ASR", needKey: false },
-    })[d.asr_mode] || { name: "云端 MiMo ASR", needKey: true };
+      mimo: { nameKey: "mimoName", needKey: true },
+      whisper: { nameKey: "whisperName", needKey: false },
+      sensevoice: { nameKey: "sensevoiceName", needKey: false },
+    })[d.asr_mode] || { nameKey: "mimoName", needKey: true };
     document.getElementById("s-model").innerHTML = modelInfo.needKey && !d.mimo_api_key_set
-      ? tag("未配置 MIMO_API_KEY ✗", "err")
-      : tag(modelInfo.name + " ✔", "ok");
+      ? tag(t("noKey") + " ✗", "err")
+      : tag(t(modelInfo.nameKey) + " ✔", "ok");
     document.getElementById("s-polish").innerHTML = d.polish_enabled
-      ? (d.polish_ready ? tag("已开启 ✔", "ok") : tag("开启但未就绪 ⚠", "warn")) +
-        (d.polish_mode_label ? ' <span style="color:var(--sub)">(' + d.polish_mode_label + ')</span>' : "")
-      : tag("关闭", "ok");
+      ? (d.polish_ready ? tag(t("onOk"), "ok") : tag(t("onWarn"), "warn")) +
+        (d.polish_mode_label ? ' <span style="color:var(--sub)">(' + polishLabel(d.polish_mode, d.polish_mode_label) + ')</span>' : "")
+      : tag(t("off"), "ok");
     // 润色失败原因（若有）：直接显示在状态卡，便于排查
     var pe = document.getElementById("s-polish-err");
     if (d.polish_last_error) {
       pe.textContent = d.polish_last_error;
       pe.style.color = "#e5484d";
     } else {
-      pe.textContent = "无";
+      pe.textContent = t("none");
       pe.style.color = "";
     }
     // 润色模式按钮高亮
     var curMode = d.polish_enabled ? d.polish_mode : "off";
     document.getElementById("pm-current").textContent =
-      "当前：" + (d.polish_enabled ? d.polish_mode_label : "关闭");
+      t("pmCurrentPrefix") + (d.polish_enabled ? polishLabel(d.polish_mode, d.polish_mode_label) : t("off"));
     document.querySelectorAll("#pmodes .pmode").forEach(function (b) {
       b.classList.toggle("active", b.dataset.mode === curMode);
     });
     document.getElementById("s-glossary").textContent =
-      d.glossary_count > 0 ? (d.glossary_count + " 条规则已加载") : "无（可建 glossary.txt）";
+      d.glossary_count > 0 ? t("rulesLoaded").replace("{n}", d.glossary_count) : t("glossaryNone");
     document.getElementById("s-drop").textContent =
-      d.drop_phrases_count > 0 ? (d.drop_phrases_count + " 条规则已加载") : "无（可在下方添加）";
+      d.drop_phrases_count > 0 ? t("rulesLoaded").replace("{n}", d.drop_phrases_count) : t("dropNone");
     // 仅云端 MiMo 模式、且未配置 key 时才提示去填 key；本地模式不需要。
     document.getElementById("key-banner").style.display =
       (d.asr_mode === "mimo" && !d.mimo_api_key_set) ? "block" : "none";
@@ -306,7 +433,7 @@
     var wrap = document.getElementById("conn-wrap");
     var list = d.connections || [];
     if (!list.length) {
-      wrap.innerHTML = '<div class="empty">暂无连接记录。手机打开页面后会出现在这里。</div>';
+      wrap.innerHTML = '<div class="empty">' + t("connEmpty") + '</div>';
       return;
     }
     var rows = list.slice(-10).reverse().map(function (c) {
@@ -316,27 +443,27 @@
       return "<tr><td>" + c.time + "</td><td class='ip'>" + c.ip + "</td><td>" +
              c.method + " " + c.path + "</td><td>" + stTag + "</td></tr>";
     }).join("");
-    wrap.innerHTML = "<table><thead><tr><th>时间</th><th>客户端IP</th><th>请求</th><th>状态</th></tr></thead><tbody>" +
+    wrap.innerHTML = "<table><thead><tr><th>" + t("thTime") + "</th><th>" + t("thIp") + "</th><th>" + t("thReq") + "</th><th>" + t("thStatus") + "</th></thead><tbody>" +
                      rows + "</tbody></table>";
   }
 
   function renderError() {
     var dot = document.getElementById("dot");
     dot.className = "dot err";
-    document.getElementById("s-running").innerHTML = tag("无法连接服务端", "err");
+    document.getElementById("s-running").innerHTML = tag(t("srvErr"), "err");
     document.getElementById("s-ip").textContent = "—";
     document.getElementById("s-ffmpeg").textContent = "—";
     document.getElementById("s-cert").textContent = "—";
     document.getElementById("s-model").textContent = "—";
     document.getElementById("s-polish").textContent = "—";
-    document.getElementById("pm-current").textContent = "当前：—";
+    document.getElementById("pm-current").textContent = t("pmCurrentPrefix") + "—";
     document.querySelectorAll("#pmodes .pmode").forEach(function (b) { b.classList.remove("active"); });
     document.getElementById("s-glossary").textContent = "—";
     document.getElementById("s-drop").textContent = "—";
     document.getElementById("s-uptime").textContent = "—";
     document.getElementById("key-banner").style.display = "none";
     document.getElementById("conn-wrap").innerHTML =
-      '<div class="empty">获取状态失败。请确认服务正在运行（双击 start.bat，窗口里有“服务已启动”）。</div>';
+      '<div class="empty">' + t("statusFail") + '</div>';
   }
 
   var tick = 0;
@@ -347,10 +474,10 @@
       if (!r.ok) throw new Error("bad status");
       var d = await r.json();
       renderStatus(d);
-      document.getElementById("refresh").textContent = "已更新 " + tick + " 次";
+      document.getElementById("refresh").textContent = t("refreshCount").replace("{n}", tick);
     } catch (e) {
       renderError();
-      document.getElementById("refresh").textContent = "连接失败";
+      document.getElementById("refresh").textContent = t("connFail");
     }
   }
 
@@ -362,8 +489,8 @@
   document.getElementById("copy").addEventListener("click", function () {
     var url = document.getElementById("url").textContent;
     if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () {
-      var b = document.getElementById("copy"); var t = b.textContent;
-      b.textContent = "已复制 ✔"; setTimeout(function () { b.textContent = t; }, 1500);
+      var b = document.getElementById("copy"); var tt = b.textContent;
+      b.textContent = t("copied"); setTimeout(function () { b.textContent = tt; }, 1500);
     });
   });
 
@@ -382,9 +509,9 @@
   function renderDrop(data) {
     var list = (data && data.phrases) || [];
     var wrap = document.getElementById("drop-list");
-    document.getElementById("drop-count").textContent = list.length ? (list.length + " 条规则") : "未配置";
+    document.getElementById("drop-count").textContent = list.length ? t("rulesLoaded").replace("{n}", list.length) : t("notConfigured");
     if (!list.length) {
-      wrap.innerHTML = '<div class="drop-empty">暂无丢弃规则。添加后，识别文本里出现这些短语会被自动删除。</div>';
+      wrap.innerHTML = '<div class="drop-empty">' + t("noDropRules") + '</div>';
       return;
     }
     wrap.innerHTML = list.map(function (p) {
@@ -431,7 +558,7 @@
       });
       if (r.ok) {
         var d = await r.json();
-        document.getElementById("pm-current").textContent = "当前：" + (d.enabled ? d.label : "关闭");
+        document.getElementById("pm-current").textContent = t("pmCurrentPrefix") + (d.enabled ? polishLabel(d.mode, d.label) : t("off"));
         document.querySelectorAll("#pmodes .pmode").forEach(function (b) {
           b.classList.toggle("active", b.dataset.mode === (d.enabled ? d.mode : "off"));
         });
@@ -446,12 +573,10 @@
   var restarting = false;
   document.getElementById("btn-restart").addEventListener("click", async function () {
     if (restarting) return;
-    if (!confirm(
-      "确定重启服务器吗？\n\n约几秒后自动恢复。当前运行时设置（如润色模式）会重置为 .env / 启动菜单的默认值；"
-      + "「自动丢弃文本」等已保存规则不受影响。")) return;
+    if (!confirm(t("restartConfirm"))) return;
     var btn = this;
     btn.disabled = true;
-    btn.textContent = "🔄 重启中…";
+    btn.textContent = t("restarting");
     restarting = true;
     try { await fetch("/api/restart", { method: "POST" }); } catch (e) {}
     // 轮询直到服务恢复，然后刷新页面
@@ -465,7 +590,7 @@
         if (tries > 30) {
           clearInterval(iv);
           btn.disabled = false;
-          btn.textContent = "🔄 重启服务器（让代码改动生效）";
+          btn.textContent = t("restartBtn");
           restarting = false;
         }
       }
@@ -480,7 +605,7 @@
   function resetPipe() {
     setNode("n-asr", ""); setNode("n-polish", ""); setNode("n-done", "");
     document.getElementById("pipe-dot").className = "dot ok";
-    document.getElementById("pipe-sub").textContent = "空闲，等待手机说话…";
+    document.getElementById("pipe-sub").textContent = t("pipeIdle");
   }
   function renderStats(s) {
     if (!s) return;
@@ -505,11 +630,11 @@
         if (pipeTimer) clearTimeout(pipeTimer);
         resetPipe();
         setNode("n-asr", "active");
-        sub.textContent = "识别中…（语音已收到，正在转文字）";
+        sub.textContent = t("pipeAsr");
       } else if (d.stage === "polish") {
         setNode("n-asr", "done");
         setNode("n-polish", "active");
-        sub.textContent = "润色中…（去口语 / 加标点 / 分段）";
+        sub.textContent = t("pipePolish");
       } else if (d.stage === "polish_done") {
         setNode("n-polish", "done");
       } else if (d.stage === "done") {
@@ -517,7 +642,7 @@
         dot.className = "dot ok";
         var ms = (d.ms != null ? d.ms : 0);
         var pms = (d.polish_ms != null ? d.polish_ms : 0);
-        sub.innerHTML = "已粘贴 ✔　识别 <b>" + ms + "ms</b>" + (pms ? "　润色 <b>" + pms + "ms</b>" : "");
+        sub.innerHTML = t("pipeDone") + "　" + t("asrMs") + " <b>" + ms + "ms</b>" + (pms ? "　" + t("pipePolishMs") + " <b>" + pms + "ms</b>" : "");
         var prev = document.getElementById("preview");
         prev.textContent = (d.text && d.text.length > 200 ? d.text.slice(0, 200) + "…" : (d.text || ""));
         renderStats(d.stats);
@@ -526,7 +651,7 @@
       } else if (d.stage === "error") {
         setNode("n-asr", "err");
         dot.className = "dot err";
-        sub.textContent = "出错：" + (d.msg || "未知错误");
+        sub.textContent = t("pipeErr") + (d.msg || t("unknown"));
         if (pipeTimer) clearTimeout(pipeTimer);
         pipeTimer = setTimeout(resetPipe, 3000);
       }
@@ -537,6 +662,14 @@
 
   poll();
   setInterval(poll, 3000);
+
+  // ---- 语言切换初始化：应用默认语言 + 切换时刷新状态/流水线 ----
+  window._onLangChange = function () {
+    try { poll(); } catch (e) {}
+    try { resetPipe(); } catch (e) {}
+  };
+  _applyStatic();
+  _updateToggle();
 </script>
 </body>
 </html>
