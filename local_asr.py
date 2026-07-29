@@ -116,9 +116,15 @@ class LocalSenseVoiceASR:
     """基于阿里 FunAudioLLM SenseVoice 的离线识别（语音不出本机，自带标点 / ITN）。
 
     默认模型 iic/SenseVoiceSmall（ModelScope），支持中 / 英 / 粤 / 日 / 韩多语种，
-    输出自带标点与逆文本归一化（数字转阿拉伯数字）。可用环境变量：
+    输出自带标点与逆文本归一化（数字转阿拉伯数字）。已做的调优：
+        - 挂 fsmn-vad 做端点检测、单段上限 30s，长录音自动切段，避免截断丢字；
+        - 官方 rich_transcription_postprocess 做 ITN / 标点规整（失败回退手写正则）；
+        - 事件过滤：纯笑声/咳嗽等无文字段返回空，不污染光标；
+        - 语种自适应：默认 zh（短句最准），长录音(>=8s)切 auto 覆盖中英混说。
+    可用环境变量：
         SENSEVOICE_MODEL  模型名（默认 iic/SenseVoiceSmall）
         SENSEVOICE_DEVICE 推理设备（默认 cpu；有 CUDA 可填 cuda:0）
+        SENSEVOICE_LANG   语种（默认 zh；auto/en/ja/ko/yue 等；不设为自适应）
     """
 
     def __init__(self, model=None, device=None):
@@ -128,9 +134,8 @@ class LocalSenseVoiceASR:
         # 日/韩/粤语，导致满屏错字、错误率 100%。中文场景强制 zh 准确率远高于 auto。
         # 需要识别其它语种时再经 SENSEVOICE_LANG 覆盖（如 auto / en / ja / ko / yue）。
         self.language = (os.environ.get("SENSEVOICE_LANG", "zh")).strip() or "zh"
-        # 批大小：默认 1（整段一次推理，不切分）。长录音设大（如 64）才会触发 VAD
-        # 自动切分，避免长句被截断丢字、输出更完整。CPU 上越大越慢，按需调整。
-        self.batch_size = int((os.environ.get("SENSEVOICE_BATCH", "1")).strip() or "1")
+        # 是否显式指定了语种：未指定时走「语种自适应」（见 _sync_transcribe）。
+        self.lang_explicit = "SENSEVOICE_LANG" in os.environ
         # 模型保存目录：TypMic/models/<模型名>，每个模型独立文件夹，互不干扰
         short = self.model_name.split("/")[-1]
         self.cache_dir = _MODELS_DIR / short
@@ -152,14 +157,18 @@ class LocalSenseVoiceASR:
             from funasr import AutoModel
             with _SV_LOCK:
                 if _SV_MODEL is None:
-                    # 对齐官方最简用法（纯 CPU 办公机三行跑通，无需额外配置）：
-                    #   from funasr import AutoModel
-                    #   m = AutoModel(model="iic/SenseVoiceSmall", trust_remote_code=True)
-                    #   m.generate(input="x.wav", language="auto", use_itn=True)[0]["text"]
+                    # 对齐官方用法 + 长音频切分：挂 fsmn-vad 做端点检测、单段上限 30s，
+                    # 避免长录音整段一次推理被截断丢字（CPU 上整段 >30s 风险实打实）。
                     # device 默认 cpu；有 CUDA 可经 SENSEVOICE_DEVICE 指定。
                     # trust_remote_code=True：SenseVoiceSmall 自带自定义 model.py，
                     # 多数 funasr 版本需要它才能加载（与 start.bat 预下载调用保持一致）。
-                    _SV_MODEL = AutoModel(model=self.model_name, device=self.device, trust_remote_code=True)
+                    _SV_MODEL = AutoModel(
+                        model=self.model_name,
+                        device=self.device,
+                        trust_remote_code=True,
+                        vad_model="fsmn-vad",
+                        vad_kwargs={"max_single_segment_time": 30000},
+                    )
         return _SV_MODEL
 
     async def transcribe(self, wav_path):
@@ -181,14 +190,28 @@ class LocalSenseVoiceASR:
             import soundfile as sf
             info = sf.info(wav_path)
             audio_desc = f"sr={info.samplerate}Hz ch={info.channels} dur={info.duration:.2f}s"
+            dur = float(info.duration)
         except Exception as _e:
             audio_desc = f"(无法读取音频元信息: {_e})"
-        print(f"[SenseVoice] 输入: {wav_path} | {audio_desc} | lang={self.language} "
+            dur = None
+        # 语种自适应：默认 zh（短句最准）；长录音(>=8s)切 auto（VAD 切段后每段更长，
+        # auto 误判率下降），覆盖中英混说。用户显式设了 SENSEVOICE_LANG 则尊重不覆盖。
+        lang = self.language
+        if (not self.lang_explicit) and dur is not None and dur >= 8.0:
+            lang = "auto"
+        print(f"[SenseVoice] 输入: {wav_path} | {audio_desc} | lang={lang} "
+              f"(配置={self.language}{' 自适应→auto' if lang != self.language else ''}) "
               f"| model={self.model_name} device={self.device}", flush=True)
-        # 官方最简调用：language 默认 zh（避免 auto 误判语种），use_itn=True 逆文本归一化
-        # batch_size 影响长音频完整性（>1 触发 VAD 切分，默认 1 不切分）
-        res = model.generate(input=wav_path, language=self.language, use_itn=True,
-                             batch_size=self.batch_size)
+        # 官方推荐长音频做法：挂 VAD 自动切段 + 动态批(batch_size_s) + 合并短段(merge_vad)，
+        # 保证长录音完整不丢字；use_itn=True 逆文本归一化。
+        res = model.generate(
+            input=wav_path,
+            language=lang,
+            use_itn=True,
+            batch_size_s=60,    # 动态批：按总秒数控制（配合 VAD 切段）
+            merge_vad=True,     # 合并过短的 VAD 片段
+            merge_length_s=15,  # 合并后目标长度(秒)
+        )
         raw = res[0]["text"] if res and isinstance(res, list) else ""
         text = self._postprocess(raw)
         print(f"[SenseVoice] 原始输出: {raw!r}", flush=True)
