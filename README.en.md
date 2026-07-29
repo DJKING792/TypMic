@@ -80,9 +80,9 @@ The text is only ever typed into the cursor of **the PC that runs this service**
 
 1. Get a Xiaomi MiMo API key at <https://platform.xiaomimimo.com> (register, then create an API key). *Only needed for Cloud Mode; skip it if you use Offline Mode.*
 2. **Allow the firewall first**: right-click `allow_firewall.bat` → "Run as administrator" (opens port 8443; one time only). If the phone later shows "connection refused / ERR_CONNECTION_REFUSED", this step was likely skipped.
-3. Double-click `start.bat`
+3. Double-click `start_en.bat`
    - On first run it creates a virtualenv and installs dependencies automatically.
-   - It then **asks you to choose the recognition mode**: `1) Cloud (MiMo)` / `2) Offline (faster-whisper)` / `3) Offline (SenseVoice)`. Offline mode skips the API-key prompt and installs the local ASR dependency automatically; your choice is remembered in `.env` for next time.
+   - It then **asks you to choose the recognition mode**: `1) Cloud (MiMo)` / `2) Offline (faster-whisper)`. Offline mode skips the API-key prompt and installs the local ASR dependency automatically; your choice is remembered in `.env` for next time.
    - It also asks about **AI polish** (default: off) and **glossary** (default: on); just press Enter to accept the defaults — no config needed.
    - If you pick Cloud Mode and no key is found, it **prompts you to enter one**, then writes it to `.env` automatically.
 4. The screen shows the "phone URL" (e.g. `https://192.168.x.x:8443`) and a QR code.
@@ -131,7 +131,7 @@ Cloud Mode needs a free Xiaomi MiMo API key. Get one in 3 steps:
 
 ## AI polish & glossary (optional)
 
-TypMic enables two post-processing steps by default: **auto-punctuation** + **correcting mis-heard terms** (e.g. product names) so the dictated text is ready to use. Both can be toggled in the `start.bat` launch menu; **on by default, no config needed**.
+TypMic enables two post-processing steps by default: **auto-punctuation** + **correcting mis-heard terms** (e.g. product names) so the dictated text is ready to use. Both can be toggled in the `start_en.bat` launch menu; **on by default, no config needed**.
 
 > When AI polish is on, the recognized text is sent to your MiMo endpoint for cleanup. To keep everything fully local, just turn it off in the menu (audio always stays on your LAN).
 
