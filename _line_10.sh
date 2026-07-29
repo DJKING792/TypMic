@@ -1,1 +1,0 @@
-  MINGW*|MSYS*|CYGWIN*)
