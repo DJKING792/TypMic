@@ -1,8 +1,9 @@
 # TypMic 本地 SenseVoice 引擎依赖（TYPOMIC_ASR=sensevoice）
 # 仅供本地识别使用；只跑云端 MiMo 无需本文件。
 # 安装：pip install -r requirements-sensevoice.txt
-# funasr 锁定 >=1.3.19：官方明确版本，保证 rich_transcription_postprocess / generate 参数稳定
-funasr>=1.3.19
+# funasr 锁定 >=1.3.29：官方 2026-07 文档已抬到 1.3.29（含字幕/时间戳修复），
+# 保证 rich_transcription_postprocess / generate(VAD、batch_size_s 等) 参数稳定
+funasr>=1.3.29
 modelscope
 # 纯 CPU 版 torch：用「每行单独指定 --index-url」的方式，只影响 torch / torchaudio 这两行，
 # 不会把上面的 funasr / modelscope 也改去 PyTorch 镜像（否则会报 No matching distribution）。
