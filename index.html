@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<!-- TYPOMIC_BUILD=20260721B 浅色高级感版（手机页=根路由 / ，对照此标记判断服务端是否发新版） -->
+<!-- TYPOMIC_BUILD=20260729A 浅色高级感版（手机页=根路由 / ，对照此标记判断服务端是否发新版） -->
 <meta name="typmic-build" content="20260721B">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>TypMic</title>
@@ -179,9 +179,83 @@
     25% { transform: translateX(-4px); }
     75% { transform: translateX(4px); }
   }
+
+  /* 语言切换按钮（中英文界面） */
+  .lang-toggle {
+    position: fixed; top: 12px; right: 12px; z-index: 60;
+    padding: 6px 12px; border-radius: 18px;
+    border: 1px solid rgba(15,23,42,0.12);
+    background: rgba(255,255,255,0.75); color: #0f172a;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(15,23,42,0.10);
+    user-select: none;
+  }
+  .lang-toggle:active { transform: scale(0.95); }
 </style>
+<script>
+  // ---- i18n：中英文界面切换（页面内点击 🌐 按钮随时切换，默认中文）----
+  var I18N = {
+    zh: {
+      talkHint: '按住说话<br><span style="font-size:13px; opacity:0.7;">松手即刻识别并注入电脑光标</span>',
+      kEnter: '回车', kNewline: '换行', kBackspace: '删除', kClear: '清空',
+      wake: '唤醒硬件中...', recognizing: '识别中...', injected: '已注入电脑光标 ✔',
+      recFail: '识别失败: ', netDown: '网络断开: ', netDown2: '网络断开',
+      micConflict: '硬件冲突：麦克风被其他应用占用', micDenied: '权限遭拒：请在浏览器设置中允许麦克风',
+      noMic: '未检测到麦克风', errPrefix: '错误: ', ctrlFail: '控制失败: ',
+      envLabel: '环境: ', permLabel: '权限: ', connLabel: '连接: ',
+      secure: '安全', insecure: '不安全', micOk: '麦克风正常', micDeniedTag: '麦克风被拒', micReq: '需麦克风',
+      connected: '已连接', serverErr: '服务端错误', disconnected: '已断开',
+      btnTalk: '说话', btnRec: '录音中', listening: '聆听中', resetMic: '重置麦克风'
+    },
+    en: {
+      talkHint: 'HOLD TO SPEAK<br><span style="font-size:13px; opacity:0.7;">Release to recognize &amp; inject at cursor</span>',
+      kEnter: 'Enter', kNewline: 'New line', kBackspace: 'Delete', kClear: 'Clear',
+      wake: 'Waking up mic...', recognizing: 'Recognizing...', injected: 'Injected into cursor ✔',
+      recFail: 'Recognition failed: ', netDown: 'Network down: ', netDown2: 'Network down',
+      micConflict: 'Mic conflict: occupied by another app', micDenied: 'Permission denied: allow mic in browser settings',
+      noMic: 'No microphone detected', errPrefix: 'Error: ', ctrlFail: 'Control failed: ',
+      envLabel: 'ENV: ', permLabel: 'PERM: ', connLabel: 'CONN: ',
+      secure: 'SECURE', insecure: 'INSECURE', micOk: 'MIC OK', micDeniedTag: 'MIC DENIED', micReq: 'MIC REQ',
+      connected: 'CONNECTED', serverErr: 'SERVER ERR', disconnected: 'DISCONNECTED',
+      btnTalk: 'TALK', btnRec: 'REC', listening: 'LISTENING', resetMic: 'RESET MIC'
+    }
+  };
+  var SERVER_LANG = 'zh';
+  var _LS = 'typmic_lang';
+  function _getLang(){ var s=null; try{ s=localStorage.getItem(_LS); }catch(e){} return s || SERVER_LANG || 'zh'; }
+  function t(k){
+    var l=_getLang();
+    if(I18N[l] && (k in I18N[l])) return I18N[l][k];
+    if(I18N.zh && (k in I18N.zh)) return I18N.zh[k];
+    if(I18N.en && (k in I18N.en)) return I18N.en[k];
+    return k;
+  }
+  function _applyStatic(){
+    var l=_getLang();
+    document.documentElement.lang = (l==='en')?'en':'zh-CN';
+    var nodes=document.querySelectorAll('[data-i18n]');
+    for(var i=0;i<nodes.length;i++){
+      var el=nodes[i];
+      if(!el.getAttribute('data-zh')) el.setAttribute('data-zh', el.innerHTML);
+      var key=el.getAttribute('data-i18n');
+      var en=I18N.en?I18N.en[key]:null;
+      el.innerHTML = (l==='en' && en!=null)?en:el.getAttribute('data-zh');
+    }
+  }
+  function _updateToggle(){
+    var b=document.getElementById('lang-toggle');
+    if(b) b.textContent = (_getLang()==='en')?'🌐 中文':'🌐 EN';
+  }
+  function _onLangChange(l){}
+  function _setLang(l){ try{ localStorage.setItem(_LS,l); }catch(e){} _applyStatic(); _updateToggle(); _onLangChange(l); }
+  function _toggleLang(){ _setLang(_getLang()==='en'?'zh':'en'); }
+  document.addEventListener('DOMContentLoaded', function(){ _applyStatic(); _updateToggle(); });
+</script>
 </head>
 <body>
+
+<button id="lang-toggle" class="lang-toggle" onclick="_toggleLang()">🌐 EN</button>
 
 <div class="ambient-glow"></div>
 
@@ -194,7 +268,7 @@
 
   <!-- 巨幕文本区 -->
   <div class="result" id="result">
-    <div class="ph">HOLD TO SPEAK<br><span style="font-size:13px; opacity: 0.7;">松手即刻识别并注入电脑光标</span></div>
+    <div class="ph" data-i18n="talkHint">HOLD TO SPEAK<br><span style="font-size:13px; opacity: 0.7;">松手即刻识别并注入电脑光标</span></div>
   </div>
 
   <!-- 动态反馈与控制 -->
@@ -202,14 +276,14 @@
 
   <div class="control-panel">
     <div class="mic-wrapper">
-      <button class="retry" id="retry">RESET MIC</button>
-      <button class="mic-btn" id="btn">TALK</button>
+      <button class="retry" id="retry" data-i18n="resetMic">RESET MIC</button>
+      <button class="mic-btn" id="btn" data-i18n="btnTalk">TALK</button>
     </div>
     <div class="keyrow" id="keyrow">
-      <button class="key-btn" data-action="enter">回车</button>
-      <button class="key-btn" data-action="newline">换行</button>
-      <button class="key-btn" data-action="backspace">删除</button>
-      <button class="key-btn" data-action="clear">清空</button>
+      <button class="key-btn" data-action="enter" data-i18n="kEnter">回车</button>
+      <button class="key-btn" data-action="newline" data-i18n="kNewline">换行</button>
+      <button class="key-btn" data-action="backspace" data-i18n="kBackspace">删除</button>
+      <button class="key-btn" data-action="clear" data-i18n="kClear">清空</button>
     </div>
   </div>
 </div>
@@ -255,13 +329,13 @@
   async function diagnose() {
     var lines = [];
     var isSecure = location.protocol === "https:" || location.hostname === "localhost";
-    lines.push("环境: " + (isSecure ? '<span class="good">SECURE</span>' : '<span class="bad">INSECURE</span>'));
+    lines.push(t("envLabel") + (isSecure ? '<span class="good">' + t("secure") + '</span>' : '<span class="bad">' + t("insecure") + '</span>'));
 
     if (navigator.permissions && navigator.permissions.query) {
       try {
         var p = await navigator.permissions.query({ name: "microphone" });
-        var label = { granted: '<span class="good">MIC_OK</span>', denied: '<span class="bad">MIC_DENIED</span>', prompt: "MIC_REQ" };
-        lines.push("权限: " + (label[p.state] || p.state));
+        var label = { granted: '<span class="good">' + t("micOk") + '</span>', denied: '<span class="bad">' + t("micDeniedTag") + '</span>', prompt: t("micReq") };
+        lines.push(t("permLabel") + (label[p.state] || p.state));
       } catch (e) {}
     }
     diagEl.innerHTML = lines.join(" ｜ ");
@@ -294,7 +368,7 @@
   // ---- 录音控制 ----
   async function startRecording() {
     if (recording) return;
-    setStatus("唤醒硬件中...");
+    setStatus(t("wake"));
     try {
       var s = await ensureMic();
       chunks = [];
@@ -306,8 +380,8 @@
       requestWakeLock();
       recording = true;
       document.body.classList.add("is-recording");
-      btn.textContent = "REC";
-      setStatus("LISTENING");
+      btn.textContent = t("btnRec");
+      setStatus(t("listening"));
       retryBtn.classList.remove("show");
     } catch (err) {
       handleMicError(err);
@@ -319,14 +393,14 @@
     recording = false;
     releaseWakeLock();
     document.body.classList.remove("is-recording");
-    btn.textContent = "TALK";
+    btn.textContent = t("btnTalk");
     try { recorder.stop(); } catch (e) {}
   }
 
   async function onStop() {
     var blob = new Blob(chunks, { type: (recorder && recorder.mimeType) || "audio/webm" });
     stopStream();
-    setStatus("AI 正在深度识别...");
+    setStatus(t("recognizing"));
     var fd = new FormData();
     fd.append("audio", blob, "rec.webm");
     try {
@@ -334,12 +408,12 @@
       var data = await res.json();
       if (data.ok) {
         showText(data.text);
-        setStatus("已注入电脑光标 ✔", "ok");
+        setStatus(t("injected"), "ok");
       } else {
-        setStatus("识别失败: " + data.error, "err");
+        setStatus(t("recFail") + data.error, "err");
       }
     } catch (e) {
-      setStatus("网络断开: " + e.message, "err");
+      setStatus(t("netDown") + e.message, "err");
     }
   }
 
@@ -348,14 +422,14 @@
     stopStream();
     var name = err && err.name ? err.name : "";
     if (name === "NotReadableError" || name === "AbortError") {
-      setStatus("硬件冲突：麦克风被其他应用占用", "err");
+      setStatus(t("micConflict"), "err");
       retryBtn.classList.add("show");
     } else if (name === "NotAllowedError") {
-      setStatus("权限遭拒：请在浏览器设置中允许麦克风", "err");
+      setStatus(t("micDenied"), "err");
     } else if (name === "NotFoundError" || name === "OverconstrainedError") {
-      setStatus("未检测到麦克风", "err");
+      setStatus(t("noMic"), "err");
     } else {
-      setStatus("错误: " + name, "err");
+      setStatus(t("errPrefix") + name, "err");
       retryBtn.classList.add("show");
     }
   }
@@ -388,8 +462,8 @@
       body: JSON.stringify({ action: action })
     })
       .then(function (r) { return r.json(); })
-      .then(function (d) { if (!d.ok) setStatus("控制失败: " + (d.error || ""), "err"); })
-      .catch(function () { setStatus("网络断开", "err"); })
+      .then(function (d) { if (!d.ok) setStatus(t("ctrlFail") + (d.error || ""), "err"); })
+      .catch(function () { setStatus(t("netDown2"), "err"); })
       .finally(function () { setTimeout(function () { b.classList.remove("busy"); }, 150); });
   });
 
@@ -408,12 +482,12 @@
       var r = await fetch("/api/ping");
       var d = await r.json();
       if (d.ok) {
-        el.innerHTML = "连接: <span class='good'>CONNECTED</span>";
+        el.innerHTML = t("connLabel") + " <span class='good'>" + t("connected") + "</span>";
       } else {
-        el.innerHTML = "连接: <span class='bad'>SERVER_ERR</span>";
+        el.innerHTML = t("connLabel") + " <span class='bad'>" + t("serverErr") + "</span>";
       }
     } catch (e) {
-      el.innerHTML = "连接: <span class='bad'>DISCONNECTED</span>";
+      el.innerHTML = t("connLabel") + " <span class='bad'>" + t("disconnected") + "</span>";
     }
   }
   checkServer();
@@ -425,6 +499,14 @@
       });
     } catch (e) {}
   }
+
+  // ---- 语言切换初始化：应用默认语言 + 切换时刷新诊断/连接状态 ----
+  window._onLangChange = function () {
+    try { diagnose(); } catch (e) {}
+    try { checkServer(); } catch (e) {}
+  };
+  _applyStatic();
+  _updateToggle();
 })();
 </script>
 </body>
